@@ -1,36 +1,50 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# FlashPOS
 
-## Getting Started
+A Next.js and Supabase point-of-sale foundation for products sold by piece, pack, or box.
 
-First, run the development server:
+## Included in this foundation
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- Supabase email/password authentication
+- `employee` and `super_admin` access levels
+- Protected dashboard routes and server-side authorization
+- Super-admin team account creation, activation, and role management
+- Product, packaging unit, sales, and append-only stock ledger schema
+- PostgreSQL Row Level Security policies
+- Dashboard and inventory views ready for live Supabase data
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Local setup
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. Use Node.js 20.19+ or Node.js 22.13+.
+2. Create a Supabase project.
+3. Run `supabase/migrations/20260721000000_initial_pos.sql` in the Supabase SQL Editor.
+4. Run `supabase/migrations/20260721010000_create_inventory_product.sql` in the Supabase SQL Editor.
+5. Run `supabase/migrations/20260721020000_adjust_inventory_stock.sql` in the Supabase SQL Editor.
+6. Run `supabase/migrations/20260721030000_audit_logs_and_product_archive.sql` in the Supabase SQL Editor.
+7. Run `supabase/migrations/20260721040000_marketplace_pos.sql` in the Supabase SQL Editor.
+8. Run `supabase/migrations/20260721050000_walk_in_pos.sql` in the Supabase SQL Editor.
+9. Run `supabase/migrations/20260721060000_gcash_payments.sql` in the Supabase SQL Editor.
+10. Run `supabase/migrations/20260721070000_refunds_expenses_profit.sql` in the Supabase SQL Editor.
+11. Run `supabase/migrations/20260721080000_purchases_closing_fulfillment.sql` in the Supabase SQL Editor.
+12. Copy `.env.example` to `.env.local` and enter the project URL, publishable key, and server-only service-role key.
+13. In Supabase Authentication, create the first user.
+14. In the SQL Editor, promote that first user:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+   ```sql
+   update public.profiles
+   set role = 'super_admin'
+   where id = '<AUTH_USER_UUID>';
+   ```
 
-## Learn More
+15. Run the app:
 
-To learn more about Next.js, take a look at the following resources:
+   ```bash
+   npm run dev
+   ```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Open `http://localhost:3000` and sign in. Further employee accounts are created from **Team & access** by the super admin; public signup is intentionally unavailable.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Security notes
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Keep `SUPABASE_SERVICE_ROLE_KEY` server-only and never prefix it with `NEXT_PUBLIC_`.
+- UI route guards improve navigation, while PostgreSQL RLS remains the final data-access boundary.
+- Employees can append stock movements but cannot delete them. Super admins can make controlled corrections.
