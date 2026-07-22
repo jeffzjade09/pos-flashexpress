@@ -23,8 +23,8 @@ export async function GET(_: Request, { params }: { params: Promise<{ kind: stri
     return csvResponse(`flashpos-sales-${date}.csv`, ["Receipt", "Sale status", "Fulfillment", "Channel", "Payment", "Order reference", "Payment reference", "Subtotal", "Tax rate", "Tax collected", "Gross", "Refunded", "Net", "Completed at"], (data ?? []).map((sale) => [sale.receipt_number, sale.status, sale.fulfillment_status, sale.sales_channel, sale.payment_method, sale.external_order_id, sale.payment_reference, sale.subtotal, sale.tax_rate, sale.tax_amount, sale.total_amount, sale.refunded_amount, Number(sale.total_amount) - Number(sale.refunded_amount), sale.completed_at]));
   }
   if (kind === "inventory") {
-    const { data } = await supabase.from("product_stock").select("sku, barcode, name, category_name, stock_on_hand, low_stock_threshold, is_active").order("name");
-    return csvResponse(`flashpos-inventory-${date}.csv`, ["SKU", "Barcode", "Product", "Category", "Stock pieces", "Low-stock threshold", "Active"], (data ?? []).map((product) => [product.sku, product.barcode, product.name, product.category_name, product.stock_on_hand, product.low_stock_threshold, product.is_active]));
+    const { data } = await supabase.from("product_stock").select("sku, barcode, name, variant, category_name, cost_per_piece, stock_on_hand, low_stock_threshold, is_active").order("name");
+    return csvResponse(`flashpos-inventory-${date}.csv`, ["SKU", "Barcode", "Product", "Variant", "Category", "Cost per piece", "Stock pieces", "Low-stock threshold", "Active"], (data ?? []).map((product) => [product.sku, product.barcode, product.name, product.variant, product.category_name, product.cost_per_piece, product.stock_on_hand, product.low_stock_threshold, product.is_active]));
   }
   if (kind === "expenses") {
     const { data } = await supabase.from("expenses").select("expense_date, category, amount, note, created_at").order("expense_date", { ascending: false }).limit(10000);

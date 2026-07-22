@@ -16,6 +16,7 @@ export type PosProduct = {
   id: string;
   sku: string;
   name: string;
+  variant: string;
   categoryName: string;
   stockOnHand: number;
   barcode: string;
@@ -62,7 +63,7 @@ export function PosWorkspace({ products }: { products: PosProduct[] }) {
   const filteredProducts = useMemo(() => {
     const needle = query.trim().toLowerCase();
     if (!needle) return products;
-    return products.filter((product) => `${product.name} ${product.sku} ${product.categoryName} ${product.barcode} ${product.units.map((unit) => unit.barcode).join(" ")}`.toLowerCase().includes(needle));
+    return products.filter((product) => `${product.name} ${product.variant} ${product.sku} ${product.categoryName} ${product.barcode} ${product.units.map((unit) => unit.barcode).join(" ")}`.toLowerCase().includes(needle));
   }, [products, query]);
 
   const subtotal = cart.reduce((sum, line) => sum + line.sellingPrice * line.quantity, 0);
@@ -82,7 +83,7 @@ export function PosWorkspace({ products }: { products: PosProduct[] }) {
       if (currentPieces + unit.conversionToPiece > product.stockOnHand) return current;
       const existing = current.find((line) => line.id === unit.id);
       if (existing) return current.map((line) => line.id === unit.id ? { ...line, quantity: line.quantity + 1 } : line);
-      return [...current, { ...unit, productId: product.id, productName: product.name, quantity: 1 }];
+      return [...current, { ...unit, productId: product.id, productName: `${product.name}${product.variant ? ` — ${product.variant}` : ""}`, quantity: 1 }];
     });
   }
 
@@ -123,7 +124,7 @@ export function PosWorkspace({ products }: { products: PosProduct[] }) {
             const remaining = product.stockOnHand - piecesInCart(product.id);
             return (
               <article className="flex h-fit min-h-48 flex-col rounded-2xl border border-[#e4eae6] bg-white p-4 transition hover:border-[#b9d2c7] hover:shadow-md" key={product.id}>
-                <div className="flex items-start gap-3"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#edf5f1] text-[#0f6b4f]"><Package size={19} /></span><div className="min-w-0"><h2 className="truncate text-sm font-extrabold">{product.name}</h2><p className="mt-0.5 truncate text-[11px] text-[#87928c]">{product.sku} · {product.categoryName}</p></div></div>
+                <div className="flex items-start gap-3"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#edf5f1] text-[#0f6b4f]"><Package size={19} /></span><div className="min-w-0"><h2 className="truncate text-sm font-extrabold">{product.name}</h2>{product.variant && <p className="mt-0.5 truncate text-[11px] font-semibold text-[#52645b]">{product.variant}</p>}<p className="mt-0.5 truncate text-[11px] text-[#87928c]">{product.sku} · {product.categoryName}</p></div></div>
                 <div className="mt-4 flex items-center justify-between"><span className={`rounded-full px-2.5 py-1 text-[10px] font-extrabold ${remaining > 0 ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-600"}`}>{remaining} PCS AVAILABLE</span></div>
                 <div className="mt-4 grid gap-2">
                   {product.units.map((unit) => {

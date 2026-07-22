@@ -40,6 +40,7 @@ export function AddProductForm() {
                 <p className="eyebrow">Product details</p>
                 <div className="mt-4 grid gap-4 sm:grid-cols-2">
                   <Field label="Product name" name="name" placeholder="e.g. KitKat 4 Finger" required />
+                  <Field label="Variant (optional)" name="variant" placeholder="e.g. Milk Chocolate 50g" />
                   <Field label="SKU" name="sku" placeholder="e.g. KITKAT-4F" required />
                   <Field label="Category" name="category" placeholder="e.g. Chocolates" />
                   <Field label="Barcode (optional)" name="barcode" placeholder="Scan or enter barcode" />

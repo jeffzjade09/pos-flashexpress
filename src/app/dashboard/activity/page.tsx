@@ -16,6 +16,7 @@ const actionLabels: Record<string, string> = {
   "session.login": "Signed in",
   "session.logout": "Signed out",
   "product.created": "Created product",
+  "product.updated": "Updated product",
   "product.deleted": "Deleted product",
   "product.restored": "Restored product",
   "stock.opening": "Recorded opening stock",
@@ -44,6 +45,10 @@ function actorOf(log: AuditLog) {
 
 function detailText(log: AuditLog) {
   const details = log.details ?? {};
+  if (log.action === "product.updated") {
+    const after = typeof details.after === "object" && details.after ? details.after as Record<string, unknown> : {};
+    return [after.sku ? `SKU ${String(after.sku)}` : "", after.variant ? String(after.variant) : ""].filter(Boolean).join(" · ") || "Product details changed";
+  }
   if (log.action.startsWith("stock.")) {
     const quantity = Number(details.quantity_pieces ?? 0);
     const quantityText = `${quantity > 0 ? "+" : ""}${quantity.toLocaleString()} pieces`;
@@ -74,7 +79,7 @@ function detailText(log: AuditLog) {
   if (log.action === "closing.created") return `Cash variance ${new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(Number(details.cash_variance ?? 0))} · GCash variance ${new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(Number(details.gcash_variance ?? 0))}`;
   if (log.action === "sale.fulfillment_updated") return `${String(details.from ?? "unknown")} → ${String(details.to ?? "unknown")}`;
   if (typeof details.email === "string") return details.email;
-  if (typeof details.sku === "string" && details.sku) return `SKU ${details.sku}`;
+  if (typeof details.sku === "string" && details.sku) return `SKU ${details.sku}${details.variant ? ` · ${String(details.variant)}` : ""}`;
   return null;
 }
 

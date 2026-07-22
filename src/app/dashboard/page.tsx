@@ -47,7 +47,7 @@ export default async function DashboardPage() {
 
   const [{ count: productCount }, { data: stockData }, { data: saleData }, { data: itemData }] = await Promise.all([
     supabase.from("products").select("id", { count: "exact", head: true }).eq("is_active", true),
-    supabase.from("product_stock").select("id, name, stock_on_hand, low_stock_threshold, is_active").eq("is_active", true).order("stock_on_hand"),
+    supabase.from("product_stock").select("id, name, variant, stock_on_hand, low_stock_threshold, is_active").eq("is_active", true).order("stock_on_hand"),
     supabase.from("sales").select("id, receipt_number, status, total_amount, refunded_amount, sales_channel, payment_method, completed_at, cashier:profiles!sales_cashier_id_fkey(full_name)").in("status", ["completed", "partially_refunded", "refunded"]).gte("completed_at", sevenDayStart).lt("completed_at", tomorrow).order("completed_at", { ascending: false }),
     supabase.from("sale_items").select("product_name, quantity, refunded_quantity, conversion_to_piece, unit_price, line_total, sales!inner(status, completed_at)").in("sales.status", ["completed", "partially_refunded", "refunded"]).gte("sales.completed_at", sevenDayStart).lt("sales.completed_at", tomorrow),
   ]);

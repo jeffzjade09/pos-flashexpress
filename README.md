@@ -25,9 +25,11 @@ A Next.js and Supabase point-of-sale foundation for products sold by piece, pack
 9. Run `supabase/migrations/20260721060000_gcash_payments.sql` in the Supabase SQL Editor.
 10. Run `supabase/migrations/20260721070000_refunds_expenses_profit.sql` in the Supabase SQL Editor.
 11. Run `supabase/migrations/20260721080000_purchases_closing_fulfillment.sql` in the Supabase SQL Editor.
-12. Copy `.env.example` to `.env.local` and enter the project URL, publishable key, and server-only service-role key.
-13. In Supabase Authentication, create the first user.
-14. In the SQL Editor, promote that first user:
+12. Run `supabase/migrations/20260721090000_non_vat_percentage_tax.sql` in the Supabase SQL Editor.
+13. Run `supabase/migrations/20260722010000_product_variants_and_editing.sql` in the Supabase SQL Editor.
+14. Copy `.env.example` to `.env.local` and enter the project URL, publishable key, and server-only service-role key.
+15. In Supabase Authentication, create the first user.
+16. In the SQL Editor, promote that first user:
 
    ```sql
    update public.profiles
@@ -35,7 +37,7 @@ A Next.js and Supabase point-of-sale foundation for products sold by piece, pack
    where id = '<AUTH_USER_UUID>';
    ```
 
-15. Run the app:
+17. Run the app:
 
    ```bash
    npm run dev

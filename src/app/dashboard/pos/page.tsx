@@ -9,12 +9,13 @@ export default async function PosPage() {
   const [{ data: productRows }, { data: unitRows }] = await Promise.all([
     supabase
       .from("product_stock")
-      .select("id, sku, barcode, name, category_name, stock_on_hand, is_active")
+      .select("id, sku, barcode, name, variant, category_name, stock_on_hand, is_active")
       .eq("is_active", true)
       .order("name"),
     supabase
       .from("product_units")
-      .select("id, product_id, name, conversion_to_piece, selling_price, barcode")
+      .select("id, product_id, name, conversion_to_piece, selling_price, barcode, is_active")
+      .eq("is_active", true)
       .order("conversion_to_piece"),
   ]);
 
@@ -35,6 +36,7 @@ export default async function PosPage() {
     id: product.id,
     sku: product.sku,
     name: product.name,
+    variant: product.variant ?? "",
     categoryName: product.category_name ?? "Uncategorized",
     stockOnHand: Number(product.stock_on_hand),
     barcode: product.barcode ?? "",
