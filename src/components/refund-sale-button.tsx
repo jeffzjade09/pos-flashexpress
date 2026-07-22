@@ -11,6 +11,10 @@ export type RefundableItem = {
   quantity: number;
   refundedQuantity: number;
   unitPrice: number;
+  discountAmount?: number;
+  refundedDiscountAmount?: number;
+  taxAmount?: number;
+  refundedTaxAmount?: number;
 };
 
 const initialState: RefundState = {};
@@ -22,7 +26,18 @@ export function RefundSaleButton({ saleId, receiptNumber, items }: { saleId: str
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [state, action, pending] = useActionState(refundSale, initialState);
   const selected = useMemo(() => items.map((item) => ({ sale_item_id: item.id, quantity: quantities[item.id] ?? 0 })).filter((item) => item.quantity > 0), [items, quantities]);
-  const total = items.reduce((sum, item) => sum + Math.round((quantities[item.id] ?? 0) * item.unitPrice * 1.03 * 100) / 100, 0);
+  const total = items.reduce((sum, item) => {
+    const quantity = quantities[item.id] ?? 0;
+    if (!quantity) return sum;
+    const available = item.quantity - item.refundedQuantity;
+    const discountAmount = item.discountAmount ?? 0;
+    const refundedDiscountAmount = item.refundedDiscountAmount ?? 0;
+    const taxAmount = item.taxAmount ?? 0;
+    const refundedTaxAmount = item.refundedTaxAmount ?? 0;
+    const discount = quantity === available ? discountAmount - refundedDiscountAmount : Math.min(discountAmount - refundedDiscountAmount, Math.round(discountAmount * quantity / item.quantity * 100) / 100);
+    const tax = quantity === available ? taxAmount - refundedTaxAmount : Math.min(taxAmount - refundedTaxAmount, Math.round(taxAmount * quantity / item.quantity * 100) / 100);
+    return sum + item.unitPrice * quantity - discount + tax;
+  }, 0);
 
   return (
     <>

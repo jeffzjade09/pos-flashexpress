@@ -26,6 +26,8 @@ export async function completeSale(
   const paymentMethod = formData.get("paymentMethod") === "gcash" ? "gcash" : "cash";
   const paymentReference = String(formData.get("paymentReference") ?? "").trim();
   const amountTendered = Number(formData.get("amountTendered") ?? 0);
+  const discountType = String(formData.get("discountType") ?? "none");
+  const discountValue = Number(formData.get("discountValue") ?? 0);
   const rawCart = String(formData.get("cart") ?? "[]");
 
   if (!["walk_in", "tiktok", "lazada", "shopee"].includes(channel)) {
@@ -37,6 +39,10 @@ export async function completeSale(
   }
   if (channel === "walk_in" && paymentMethod === "cash" && (!Number.isFinite(amountTendered) || amountTendered < 0)) {
     return { error: "Enter a valid cash amount." };
+  }
+  if (!["none", "percentage", "fixed"].includes(discountType)) return { error: "Choose a valid discount type." };
+  if (!Number.isFinite(discountValue) || discountValue < 0 || (discountType === "percentage" && discountValue > 100)) {
+    return { error: discountType === "percentage" ? "Enter a discount from 0% to 100%." : "Enter a valid discount amount." };
   }
 
   let items: CartPayload[];
@@ -54,6 +60,8 @@ export async function completeSale(
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("complete_pos_sale", {
     p_channel: channel,
+    p_discount_type: discountType,
+    p_discount_value: discountType === "none" ? 0 : discountValue,
     p_external_order_id: channel === "walk_in" ? (paymentMethod === "gcash" ? paymentReference : "") : orderReference,
     p_amount_tendered: channel === "walk_in" && paymentMethod === "cash" ? amountTendered : 0,
     p_items: items,
@@ -62,7 +70,7 @@ export async function completeSale(
   if (error) {
     if (error.code === "23505") return { error: channel === "walk_in" ? "That GCash reference ID has already been recorded." : `Order ${orderReference} has already been recorded for this marketplace.` };
     if (error.code === "PGRST202" || error.message.includes("complete_pos_sale")) {
-      return { error: "The walk-in POS database update has not been installed yet." };
+      return { error: "Run the latest order discounts migration in Supabase, then refresh this page." };
     }
     return { error: error.message || "The sale could not be completed." };
   }

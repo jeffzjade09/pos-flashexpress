@@ -16,7 +16,7 @@ export default async function SaleReceiptPage({ params }: { params: Promise<{ id
   const supabase = await createClient();
   const { data } = await supabase
     .from("sales")
-    .select("id, receipt_number, status, subtotal, tax_rate, tax_amount, total_amount, refunded_amount, amount_tendered, change_amount, payment_method, payment_reference, sales_channel, external_order_id, completed_at, cashier:profiles!sales_cashier_id_fkey(full_name), sale_items(id, product_name, unit_name, quantity, refunded_quantity, unit_price, line_total), sale_refunds(id, refund_amount, reason, restock_items, created_at)")
+    .select("id, receipt_number, status, subtotal, discount_type, discount_value, discount_amount, tax_rate, tax_amount, total_amount, refunded_amount, amount_tendered, change_amount, payment_method, payment_reference, sales_channel, external_order_id, completed_at, cashier:profiles!sales_cashier_id_fkey(full_name), sale_items(id, product_name, unit_name, quantity, refunded_quantity, unit_price, line_total), sale_refunds(id, refund_amount, reason, restock_items, created_at)")
     .eq("id", id)
     .single();
   if (!data) notFound();
@@ -55,6 +55,7 @@ export default async function SaleReceiptPage({ params }: { params: Promise<{ id
           </table>
           <div className="ml-auto mt-5 max-w-xs space-y-2 text-sm">
             <div className="flex justify-between"><span className="text-[#718078]">Subtotal</span><strong>{money(Number(data.subtotal))}</strong></div>
+            {Number(data.discount_amount) > 0 && <div className="flex justify-between text-emerald-700"><span>Discount{data.discount_type === "percentage" ? ` (${Number(data.discount_value)}%)` : ""}</span><strong>-{money(Number(data.discount_amount))}</strong></div>}
             {Number(data.tax_amount) > 0 && <div className="flex justify-between"><span className="text-[#718078]">3% non-VAT charge</span><strong>{money(Number(data.tax_amount))}</strong></div>}
             {refunded > 0 && <div className="flex justify-between text-red-600"><span>Refunded</span><strong>-{money(refunded)}</strong></div>}
             <div className="flex justify-between border-t border-[#dfe6e2] pt-3 text-lg"><span className="font-black">Net total</span><strong>{money(total - refunded)}</strong></div>

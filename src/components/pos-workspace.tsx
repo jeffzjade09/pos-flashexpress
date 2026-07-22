@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useMemo, useState } from "react";
-import { CheckCircle2, Minus, Package, Plus, Search, ShoppingBag, Store, Trash2 } from "lucide-react";
+import { BadgePercent, CheckCircle2, Minus, Package, Plus, Search, ShoppingBag, Store, Trash2 } from "lucide-react";
 import { completeSale, type CheckoutState } from "@/app/dashboard/pos/actions";
 
 export type PosUnit = {
@@ -48,6 +48,8 @@ export function PosWorkspace({ products }: { products: PosProduct[] }) {
   const [amountTendered, setAmountTendered] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "gcash">("cash");
   const [paymentReference, setPaymentReference] = useState("");
+  const [discountType, setDiscountType] = useState<"none" | "percentage" | "fixed">("none");
+  const [discountValue, setDiscountValue] = useState("");
   const [cart, setCart] = useState<CartLine[]>([]);
   const [state, action, pending] = useActionState(async (previous: CheckoutState, formData: FormData) => {
     const result = await completeSale(previous, formData);
@@ -56,6 +58,8 @@ export function PosWorkspace({ products }: { products: PosProduct[] }) {
       setOrderReference("");
       setAmountTendered("");
       setPaymentReference("");
+      setDiscountType("none");
+      setDiscountValue("");
     }
     return result;
   }, initialState);
@@ -67,8 +71,11 @@ export function PosWorkspace({ products }: { products: PosProduct[] }) {
   }, [products, query]);
 
   const subtotal = cart.reduce((sum, line) => sum + line.sellingPrice * line.quantity, 0);
-  const taxAmount = cart.reduce((sum, line) => sum + Math.round(line.sellingPrice * line.quantity * 0.03 * 100) / 100, 0);
-  const total = subtotal + taxAmount;
+  const enteredDiscount = Math.max(0, Number(discountValue) || 0);
+  const discountAmount = Math.min(subtotal, discountType === "percentage" ? Math.round(subtotal * enteredDiscount) / 100 : discountType === "fixed" ? Math.round(enteredDiscount * 100) / 100 : 0);
+  const discountedSubtotal = subtotal - discountAmount;
+  const taxAmount = Math.round(discountedSubtotal * 0.03 * 100) / 100;
+  const total = discountedSubtotal + taxAmount;
   const totalUnits = cart.reduce((sum, line) => sum + line.quantity, 0);
   const cashReceived = Number(amountTendered) || 0;
   const expectedChange = Math.max(0, cashReceived - total);
@@ -142,6 +149,8 @@ export function PosWorkspace({ products }: { products: PosProduct[] }) {
       <form action={action} className="card overflow-hidden xl:sticky xl:top-24">
         <input type="hidden" name="channel" value={channel} />
         <input type="hidden" name="paymentMethod" value={paymentMethod} />
+        <input type="hidden" name="discountType" value={discountType} />
+        <input type="hidden" name="discountValue" value={discountType === "none" ? "0" : discountValue} />
         <input type="hidden" name="cart" value={JSON.stringify(cart.map((line) => ({ product_unit_id: line.id, quantity: line.quantity })))} />
 
         <div className="border-b border-[#e5eae7] p-5">
@@ -168,7 +177,14 @@ export function PosWorkspace({ products }: { products: PosProduct[] }) {
         <div className="border-t border-[#e5eae7] bg-[#fbfcfb] p-5">
           {state.error && <p className="mb-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-xs font-semibold text-red-700" role="alert">{state.error}</p>}
           {state.success && <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-emerald-800" role="status"><div className="flex gap-2"><CheckCircle2 className="mt-0.5 shrink-0" size={17} /><div><p className="text-xs font-extrabold">{state.success}</p><p className="mt-1 text-[11px]">Receipt {state.receiptNumber} · {money(state.totalAmount ?? 0)}{(state.changeAmount ?? 0) > 0 ? ` · Change ${money(state.changeAmount ?? 0)}` : ""}</p></div></div></div>}
-          <div className="space-y-2"><div className="flex items-center justify-between text-xs"><span className="font-semibold text-[#748078]">Merchandise subtotal</span><span className="font-bold">{money(subtotal)}</span></div><div className="flex items-center justify-between text-xs"><span className="font-semibold text-[#748078]">3% non-VAT percentage charge</span><span className="font-bold">{money(taxAmount)}</span></div><div className="flex items-center justify-between border-t border-[#dfe6e2] pt-3"><span className="text-sm font-semibold text-[#66756d]">Order total</span><span className="text-2xl font-black tracking-tight">{money(total)}</span></div></div>
+          <div className="mb-4 rounded-xl border border-[#dfe7e3] bg-white p-3">
+            <div className="flex items-center gap-2 text-xs font-extrabold text-[#315345]"><BadgePercent size={15} />Order discount</div>
+            <div className="mt-3 grid grid-cols-3 gap-2">
+              {([{ value: "none", label: "None" }, { value: "percentage", label: "% Percent" }, { value: "fixed", label: "₱ Fixed" }] as const).map((option) => <button className={`rounded-lg border px-2 py-2 text-[10px] font-extrabold ${discountType === option.value ? "border-[#0f6b4f] bg-[#eef7f3] text-[#0f6b4f] ring-1 ring-[#0f6b4f]" : "border-[#dce4df] text-[#748078]"}`} key={option.value} onClick={() => { setDiscountType(option.value); setDiscountValue(""); }} type="button">{option.label}</button>)}
+            </div>
+            {discountType !== "none" && <label className="mt-3 block"><span className="mb-1.5 block text-[10px] font-bold text-[#65736c]">{discountType === "percentage" ? "Discount percentage" : "Discount amount"}</span><span className="relative block">{discountType === "fixed" && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-[#7c8982]">₱</span>}<input className={`field text-sm ${discountType === "fixed" ? "with-currency-prefix" : ""}`} max={discountType === "percentage" ? 100 : subtotal} min="0" onChange={(event) => setDiscountValue(event.target.value)} placeholder="0.00" step="0.01" type="number" value={discountValue} />{discountType === "percentage" && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-bold text-[#7c8982]">%</span>}</span></label>}
+          </div>
+          <div className="space-y-2"><div className="flex items-center justify-between text-xs"><span className="font-semibold text-[#748078]">Merchandise subtotal</span><span className="font-bold">{money(subtotal)}</span></div>{discountAmount > 0 && <div className="flex items-center justify-between text-xs text-emerald-700"><span className="font-semibold">Discount{discountType === "percentage" ? ` (${enteredDiscount}%)` : ""}</span><span className="font-bold">-{money(discountAmount)}</span></div>}<div className="flex items-center justify-between text-xs"><span className="font-semibold text-[#748078]">3% non-VAT percentage charge</span><span className="font-bold">{money(taxAmount)}</span></div><div className="flex items-center justify-between border-t border-[#dfe6e2] pt-3"><span className="text-sm font-semibold text-[#66756d]">Order total</span><span className="text-2xl font-black tracking-tight">{money(total)}</span></div></div>
           <button className="btn-primary mt-4 w-full justify-center py-3.5 disabled:cursor-not-allowed disabled:opacity-50" disabled={pending || !cart.length || (channel === "walk_in" ? (paymentMethod === "cash" ? cashReceived < total : paymentReference.trim().length < 4) : !orderReference.trim())} type="submit">{pending ? "Completing order…" : channel === "walk_in" ? `Complete ${paymentMethod === "gcash" ? "GCash" : "cash"} sale` : `Complete ${channels.find((item) => item.value === channel)?.label} order`}</button>
           <p className="mt-3 text-center text-[10px] leading-4 text-[#89958f]">Completing the order records the sale and deducts inventory immediately.</p>
         </div>
