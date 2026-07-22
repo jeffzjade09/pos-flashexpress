@@ -24,7 +24,10 @@ export async function GET(_: Request, { params }: { params: Promise<{ kind: stri
   }
   if (kind === "inventory") {
     const { data } = await supabase.from("product_stock").select("sku, barcode, name, variant, category_name, cost_per_piece, stock_on_hand, low_stock_threshold, is_active").order("name");
-    return csvResponse(`flashpos-inventory-${date}.csv`, ["SKU", "Barcode", "Product", "Variant", "Category", "Cost per piece", "Stock pieces", "Low-stock threshold", "Active"], (data ?? []).map((product) => [product.sku, product.barcode, product.name, product.variant, product.category_name, product.cost_per_piece, product.stock_on_hand, product.low_stock_threshold, product.is_active]));
+    const rows = (data ?? []).map((product) => [product.sku, product.barcode, product.name, product.variant, product.category_name, product.cost_per_piece, product.stock_on_hand, Number(product.cost_per_piece) * Number(product.stock_on_hand), product.low_stock_threshold, product.is_active]);
+    const overallValue = (data ?? []).filter((product) => product.is_active).reduce((sum, product) => sum + Number(product.cost_per_piece) * Number(product.stock_on_hand), 0);
+    rows.push(["", "", "OVERALL INVENTORY VALUE", "", "", "", "", overallValue, "", ""]);
+    return csvResponse(`flashpos-inventory-${date}.csv`, ["SKU", "Barcode", "Product", "Variant", "Category", "Cost per piece", "Stock pieces", "Product total", "Low-stock threshold", "Active"], rows);
   }
   if (kind === "expenses") {
     const { data } = await supabase.from("expenses").select("expense_date, category, amount, note, created_at").order("expense_date", { ascending: false }).limit(10000);
