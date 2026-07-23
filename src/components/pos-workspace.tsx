@@ -126,7 +126,7 @@ export function PosWorkspace({ products }: { products: PosProduct[] }) {
         <div className="border-b border-[#e5eae7] p-4">
           <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#89958f]" size={18} /><input className="field py-3 pl-10 text-sm" value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={scanBarcode} placeholder="Search or scan a product barcode" /></div>
         </div>
-        <div className="grid max-h-[calc(100vh-245px)] min-h-[540px] gap-3 overflow-y-auto p-4 sm:grid-cols-2 2xl:grid-cols-3">
+        <div className="grid max-h-[55vh] min-h-[360px] gap-3 overflow-y-auto p-3 sm:grid-cols-2 sm:p-4 xl:max-h-[calc(100vh-245px)] xl:min-h-[540px] 2xl:grid-cols-3">
           {filteredProducts.map((product) => {
             const remaining = product.stockOnHand - piecesInCart(product.id);
             return (
@@ -156,7 +156,7 @@ export function PosWorkspace({ products }: { products: PosProduct[] }) {
         <div className="border-b border-[#e5eae7] p-5">
           <div className="flex items-center justify-between"><div><p className="text-base font-black">Current order</p><p className="mt-0.5 text-xs text-[#839089]">{totalUnits} {totalUnits === 1 ? "unit" : "units"} in cart</p></div><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#e9f4ef] text-[#0f6b4f]"><ShoppingBag size={19} /></span></div>
           <label className="mt-5 block text-xs font-bold text-[#34453d]">Order source</label>
-          <div className="mt-2 grid grid-cols-4 gap-2">
+          <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
             {channels.map((item) => <button aria-pressed={channel === item.value} className={`rounded-xl border p-2 text-center transition ${channel === item.value ? "border-[#0f6b4f] bg-[#eef7f3] ring-1 ring-[#0f6b4f]" : "border-[#e0e6e3] hover:bg-[#f7f9f8]"}`} key={item.value} onClick={() => setChannel(item.value)} type="button"><span className={`mx-auto grid h-7 w-7 place-items-center rounded-lg text-[10px] font-black ${item.color}`}>{item.short}</span><span className="mt-1.5 block text-[10px] font-extrabold">{item.label}</span></button>)}
           </div>
           {channel === "walk_in" ? (
