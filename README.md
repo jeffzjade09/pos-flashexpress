@@ -1,52 +1,99 @@
 # FlashPOS
 
-A Next.js and Supabase point-of-sale foundation for products sold by piece, pack, or box.
+FlashPOS is a production-oriented point-of-sale and store-operations application built with Next.js 16, Supabase, and Railway. It is designed for products sold by piece, pack, or box and prioritizes reliable transactions, inventory accuracy, auditability, security, and maintainable growth.
 
-## Included in this foundation
+## Current capabilities
 
-- Supabase email/password authentication
-- `employee` and `super_admin` access levels
-- Protected dashboard routes and server-side authorization
-- Super-admin team account creation, activation, and role management
-- Product, packaging unit, sales, and append-only stock ledger schema
-- PostgreSQL Row Level Security policies
-- Dashboard and inventory views ready for live Supabase data
+- Supabase email/password authentication with `employee` and `super_admin` roles
+- Walk-in cash and GCash checkout
+- TikTok, Lazada, and Shopee order capture and fulfillment tracking
+- Product variants, packaging units, stock adjustments, and low-stock monitoring
+- Append-only stock movements and user activity logs
+- Purchase orders, suppliers, and inventory receiving
+- Order discounts, non-VAT percentage tax, item-level refunds, and restocking
+- Expenses, profit reports, CSV exports, and cashier daily closing
+- Protected dashboard routes, server-side authorization, and PostgreSQL Row Level Security
 
-## Local setup
+## Architecture
 
-1. Use Node.js 20.19+ or Node.js 22.13+.
-2. Create a Supabase project.
-3. Run `supabase/migrations/20260721000000_initial_pos.sql` in the Supabase SQL Editor.
-4. Run `supabase/migrations/20260721010000_create_inventory_product.sql` in the Supabase SQL Editor.
-5. Run `supabase/migrations/20260721020000_adjust_inventory_stock.sql` in the Supabase SQL Editor.
-6. Run `supabase/migrations/20260721030000_audit_logs_and_product_archive.sql` in the Supabase SQL Editor.
-7. Run `supabase/migrations/20260721040000_marketplace_pos.sql` in the Supabase SQL Editor.
-8. Run `supabase/migrations/20260721050000_walk_in_pos.sql` in the Supabase SQL Editor.
-9. Run `supabase/migrations/20260721060000_gcash_payments.sql` in the Supabase SQL Editor.
-10. Run `supabase/migrations/20260721070000_refunds_expenses_profit.sql` in the Supabase SQL Editor.
-11. Run `supabase/migrations/20260721080000_purchases_closing_fulfillment.sql` in the Supabase SQL Editor.
-12. Run `supabase/migrations/20260721090000_non_vat_percentage_tax.sql` in the Supabase SQL Editor.
-13. Run `supabase/migrations/20260722010000_product_variants_and_editing.sql` in the Supabase SQL Editor.
-14. Copy `.env.example` to `.env.local` and enter the project URL, publishable key, and server-only service-role key.
-15. In Supabase Authentication, create the first user.
-16. In the SQL Editor, promote that first user:
+FlashPOS uses the Next.js App Router. Server Components perform authenticated reads, Client Components are limited to interactive UI, and Server Actions handle mutations. Supabase provides authentication and PostgreSQL persistence, while RLS remains the final data-access boundary.
 
-   ```sql
-   update public.profiles
-   set role = 'super_admin'
-   where id = '<AUTH_USER_UUID>';
-   ```
+Operations that must update multiple records atomically—such as checkout, refunds, stock adjustments, and purchase receiving—are implemented as PostgreSQL functions in versioned migrations. PostgreSQL is authoritative for persisted monetary totals and stock quantities; client-side calculations are previews only.
 
-17. Run the app:
+Application source lives under `src/`, database migrations under `supabase/migrations/`, deployment helpers under `scripts/`, and user-facing documentation under `docs/`. The canonical engineering, coding, Git, review, and AI-agent rules are in [AGENTS.md](./AGENTS.md).
 
-   ```bash
-   npm run dev
-   ```
+## Local development
 
-Open `http://localhost:3000` and sign in. Further employee accounts are created from **Team & access** by the super admin; public signup is intentionally unavailable.
+### Prerequisites
 
-## Security notes
+- Node.js 20.19+ or Node.js 22.13+
+- npm
+- Access to the existing hosted Supabase project, or a separate Supabase project for isolated development
 
-- Keep `SUPABASE_SERVICE_ROLE_KEY` server-only and never prefix it with `NEXT_PUBLIC_`.
-- UI route guards improve navigation, while PostgreSQL RLS remains the final data-access boundary.
-- Employees can append stock movements but cannot delete them. Super admins can make controlled corrections.
+### Environment
+
+Create `.env.local` locally with values supplied through the approved secret-sharing process:
+
+```text
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+```
+
+Never commit `.env`, `.env.local`, service-role keys, database credentials, or production data. Only variables intentionally safe for browsers may use the `NEXT_PUBLIC_` prefix.
+
+### Install and run
+
+```bash
+npm ci
+npm run dev
+```
+
+Open `http://localhost:3000` and sign in. Public signup is intentionally unavailable; a super admin creates additional accounts from **Team & access**.
+
+### Required checks
+
+Run both checks before requesting review:
+
+```bash
+npm run lint
+npm run build
+```
+
+The production build includes TypeScript validation. Add or update focused tests when changing behavior covered by the project's test infrastructure.
+
+## Database setup and migrations
+
+The application is already connected to an existing hosted Supabase project. Do not create, reset, link, or migrate a hosted project unless the task explicitly requires it and the project owner approves the target.
+
+For a new isolated database, run every SQL file in `supabase/migrations/` in filename order. The current sequence ends with:
+
+```text
+20260723010000_order_discounts.sql
+```
+
+After creating the first authentication user in a new project, promote that user once:
+
+```sql
+update public.profiles
+set role = 'super_admin'
+where id = '<AUTH_USER_UUID>';
+```
+
+Treat migrations as append-only once applied. Never modify, reorder, or delete existing migrations to change a deployed schema; add a new timestamped migration instead. Every database-changing pull request must document the migration to run, deployment order, compatibility considerations, verification steps, and any required forward-fix plan.
+
+## Contributing
+
+Before starting work, read [AGENTS.md](./AGENTS.md) completely. It is the shared source of truth for human collaborators and AI coding agents and covers:
+
+- Project structure and separation of concerns
+- Coding, naming, security, and data-integrity standards
+- Branch and Conventional Commit conventions
+- Pull request, testing, and review expectations
+- Supabase migration and deployment safety
+
+Keep changes focused and preserve existing behavior unless the task explicitly changes it. Do not push directly to `main`; changes should be reviewed and pass the required checks before merge.
+
+## Deployment
+
+Railway runs the Next.js standalone output through the scripts in `scripts/`. Deployment configuration, environment variables, hosted migrations, and production releases are controlled operations. Do not deploy or push changes unless explicitly authorized.
