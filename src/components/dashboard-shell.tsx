@@ -14,10 +14,12 @@ import {
   LogOut,
   Menu,
   PackageSearch,
+  PackageX,
   ReceiptText,
   Settings,
   ShoppingCart,
   Truck,
+  Undo2,
   Users,
   WalletCards,
   X,
@@ -69,6 +71,8 @@ export function DashboardShell({ user, children }: { user: CurrentUser; children
               <p className="mb-3 mt-7 px-3 text-[10px] font-bold uppercase tracking-[0.16em] text-[#9aa39f]">Administration</p>
               <Link href="/dashboard/users" onClick={() => setMobileMenuOpen(false)} className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition ${pathname.startsWith("/dashboard/users") ? "bg-[#e9f4ef] text-[#0b6348]" : "text-[#66736d] hover:bg-[#f4f7f5]"}`}><Users size={18} />Team & access</Link>
               <Link href="/dashboard/activity" onClick={() => setMobileMenuOpen(false)} className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition ${pathname.startsWith("/dashboard/activity") ? "bg-[#e9f4ef] text-[#0b6348]" : "text-[#66736d] hover:bg-[#f4f7f5]"}`}><History size={18} />Activity log</Link>
+              <Link href="/dashboard/returns" onClick={() => setMobileMenuOpen(false)} className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition ${pathname.startsWith("/dashboard/returns") ? "bg-[#e9f4ef] text-[#0b6348]" : "text-[#66736d] hover:bg-[#f4f7f5]"}`}><Undo2 size={18} />Returns</Link>
+              <Link href="/dashboard/back-orders" onClick={() => setMobileMenuOpen(false)} className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition ${pathname.startsWith("/dashboard/back-orders") ? "bg-[#e9f4ef] text-[#0b6348]" : "text-[#66736d] hover:bg-[#f4f7f5]"}`}><PackageX size={18} />Back orders</Link>
               <Link href="/dashboard/expenses" onClick={() => setMobileMenuOpen(false)} className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition ${pathname.startsWith("/dashboard/expenses") ? "bg-[#e9f4ef] text-[#0b6348]" : "text-[#66736d] hover:bg-[#f4f7f5]"}`}><WalletCards size={18} />Expenses</Link>
               <Link href="/dashboard/settings" onClick={() => setMobileMenuOpen(false)} className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition ${pathname.startsWith("/dashboard/settings") ? "bg-[#e9f4ef] text-[#0b6348]" : "text-[#66736d] hover:bg-[#f4f7f5]"}`}><Settings size={18} />System settings</Link>
             </>
