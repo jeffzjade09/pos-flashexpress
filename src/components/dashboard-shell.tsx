@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
   BarChart3,
+  BookOpen,
   Boxes,
   ChevronDown,
   ClipboardCheck,
@@ -74,7 +75,11 @@ export function DashboardShell({ user, children }: { user: CurrentUser; children
           )}
         </nav>
 
-        <div className="mt-auto rounded-2xl bg-[#f5f8f6] p-3">
+        <a href="/api/user-manual" target="_blank" rel="noreferrer" onClick={() => setMobileMenuOpen(false)} className="mt-auto flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-[#66736d] transition hover:bg-[#f4f7f5] hover:text-[#26372f]">
+          <BookOpen size={18} />User manual
+        </a>
+
+        <div className="mt-3 rounded-2xl bg-[#f5f8f6] p-3">
           <div className="flex items-center gap-3">
             <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#d8ebe3] text-sm font-black text-[#0c6047]">{initial}</div>
             <div className="min-w-0 flex-1"><p className="truncate text-sm font-bold">{user.fullName}</p><p className="truncate text-[11px] capitalize text-[#78857e]">{user.role.replace("_", " ")}</p></div>
