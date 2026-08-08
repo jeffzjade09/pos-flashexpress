@@ -6,4 +6,5 @@ if (existsSync(standalone)) {
   mkdirSync(`${standalone}/.next`, { recursive: true });
   cpSync(".next/static", `${standalone}/.next/static`, { recursive: true, force: true });
   if (existsSync("public")) cpSync("public", `${standalone}/public`, { recursive: true, force: true });
+  if (existsSync("docs")) cpSync("docs", `${standalone}/docs`, { recursive: true, force: true });
 }
