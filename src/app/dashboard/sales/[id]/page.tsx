@@ -45,7 +45,7 @@ export default async function SaleReceiptPage({ params }: { params: Promise<{ id
           <p><span className="text-[#849089]">Date:</span> <strong>{new Intl.DateTimeFormat("en-PH", { dateStyle: "long", timeStyle: "short", timeZone: "Asia/Manila" }).format(new Date(data.completed_at))}</strong></p>
           <p><span className="text-[#849089]">Cashier:</span> <strong>{cashier?.full_name || "Team member"}</strong></p>
           <p><span className="text-[#849089]">Channel:</span> <strong>{channelNames[data.sales_channel] ?? data.sales_channel}</strong></p>
-          <p><span className="text-[#849089]">Payment:</span> <strong className="capitalize">{data.payment_method === "marketplace" ? "Online settlement" : data.payment_method}</strong></p>
+          <p><span className="text-[#849089]">Payment:</span> <strong className="capitalize">{data.payment_method === "marketplace" ? "Online settlement" : data.payment_method === "credit_card" ? "Credit card" : data.payment_method}</strong></p>
           {(data.external_order_id || data.payment_reference) && <p className="sm:col-span-2"><span className="text-[#849089]">Reference:</span> <strong>{data.external_order_id || data.payment_reference}</strong></p>}
         </div>
         <div className="px-7 py-5">

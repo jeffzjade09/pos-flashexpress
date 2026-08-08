@@ -23,7 +23,8 @@ export async function completeSale(
 
   const channel = String(formData.get("channel") ?? "");
   const orderReference = String(formData.get("orderReference") ?? "").trim();
-  const paymentMethod = formData.get("paymentMethod") === "gcash" ? "gcash" : "cash";
+  const rawPaymentMethod = String(formData.get("paymentMethod") ?? "cash");
+  const paymentMethod: "cash" | "gcash" | "credit_card" = rawPaymentMethod === "gcash" ? "gcash" : rawPaymentMethod === "credit_card" ? "credit_card" : "cash";
   const paymentReference = String(formData.get("paymentReference") ?? "").trim();
   const amountTendered = Number(formData.get("amountTendered") ?? 0);
   const discountType = String(formData.get("discountType") ?? "none");
@@ -36,6 +37,9 @@ export async function completeSale(
   if (channel !== "walk_in" && orderReference.length < 2) return { error: "Enter the marketplace order ID." };
   if (channel === "walk_in" && paymentMethod === "gcash" && paymentReference.length < 4) {
     return { error: "Enter the GCash reference ID." };
+  }
+  if (channel === "walk_in" && paymentMethod === "credit_card" && paymentReference.length < 2) {
+    return { error: "Enter the bank name." };
   }
   if (channel === "walk_in" && paymentMethod === "cash" && (!Number.isFinite(amountTendered) || amountTendered < 0)) {
     return { error: "Enter a valid cash amount." };
@@ -60,9 +64,10 @@ export async function completeSale(
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("complete_pos_sale", {
     p_channel: channel,
+    p_payment_method: paymentMethod,
     p_discount_type: discountType,
     p_discount_value: discountType === "none" ? 0 : discountValue,
-    p_external_order_id: channel === "walk_in" ? (paymentMethod === "gcash" ? paymentReference : "") : orderReference,
+    p_external_order_id: channel === "walk_in" ? (paymentMethod !== "cash" ? paymentReference : "") : orderReference,
     p_amount_tendered: channel === "walk_in" && paymentMethod === "cash" ? amountTendered : 0,
     p_items: items,
   });
