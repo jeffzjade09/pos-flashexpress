@@ -19,6 +19,7 @@ const actionLabels: Record<string, string> = {
   "product.updated": "Updated product",
   "product.deleted": "Deleted product",
   "product.restored": "Restored product",
+  "product.renamed": "Renamed product",
   "stock.opening": "Recorded opening stock",
   "stock.adjustment": "Adjusted stock",
   "stock.purchase": "Received stock",
@@ -43,11 +44,19 @@ function actorOf(log: AuditLog) {
   return Array.isArray(log.actor) ? log.actor[0] : log.actor;
 }
 
+function attributesText(value: unknown) {
+  if (!Array.isArray(value)) return "";
+  return value
+    .filter((entry): entry is { type: unknown; value: unknown } => typeof entry === "object" && entry !== null)
+    .map((entry) => `${String(entry.type)}: ${String(entry.value)}`)
+    .join(", ");
+}
+
 function detailText(log: AuditLog) {
   const details = log.details ?? {};
   if (log.action === "product.updated") {
     const after = typeof details.after === "object" && details.after ? details.after as Record<string, unknown> : {};
-    return [after.sku ? `SKU ${String(after.sku)}` : "", after.variant ? String(after.variant) : ""].filter(Boolean).join(" · ") || "Product details changed";
+    return [after.sku ? `SKU ${String(after.sku)}` : "", attributesText(after.variant_attributes)].filter(Boolean).join(" · ") || "Product details changed";
   }
   if (log.action.startsWith("stock.")) {
     const quantity = Number(details.quantity_pieces ?? 0);
@@ -79,7 +88,10 @@ function detailText(log: AuditLog) {
   if (log.action === "closing.created") return `Cash variance ${new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(Number(details.cash_variance ?? 0))} · GCash variance ${new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(Number(details.gcash_variance ?? 0))}`;
   if (log.action === "sale.fulfillment_updated") return `${String(details.from ?? "unknown")} → ${String(details.to ?? "unknown")}`;
   if (typeof details.email === "string") return details.email;
-  if (typeof details.sku === "string" && details.sku) return `SKU ${details.sku}${details.variant ? ` · ${String(details.variant)}` : ""}`;
+  if (typeof details.sku === "string" && details.sku) {
+    const attributes = attributesText(details.variant_attributes);
+    return `SKU ${details.sku}${attributes ? ` · ${attributes}` : ""}`;
+  }
   return null;
 }
 
