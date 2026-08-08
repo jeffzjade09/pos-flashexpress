@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, BarChart3, Boxes, CircleDollarSign, Crown, PackageCheck, ReceiptText, ShoppingBag, TriangleAlert, WalletCards } from "lucide-react";
+import { ArrowRight, BarChart3, Boxes, CircleDollarSign, Crown, Package, PackageCheck, ReceiptText, ShoppingBag, TriangleAlert, WalletCards } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth";
 
@@ -45,11 +45,12 @@ export default async function DashboardPage() {
   const sevenDayStart = new Date(todaySerial - 6 * DAY_MS - MANILA_OFFSET_MS).toISOString();
   const tomorrow = new Date(todaySerial + DAY_MS - MANILA_OFFSET_MS).toISOString();
 
-  const [{ count: productCount }, { data: stockData }, { data: saleData }, { data: itemData }] = await Promise.all([
+  const [{ count: productCount }, { data: stockData }, { data: saleData }, { data: itemData }, { data: supplyData }] = await Promise.all([
     supabase.from("products").select("id", { count: "exact", head: true }).eq("is_active", true),
     supabase.from("product_stock").select("id, name, cost_per_piece, stock_on_hand, low_stock_threshold, is_active").eq("is_active", true).order("stock_on_hand"),
     supabase.from("sales").select("id, receipt_number, status, total_amount, refunded_amount, sales_channel, payment_method, completed_at, cashier:profiles!sales_cashier_id_fkey(full_name)").in("status", ["completed", "partially_refunded", "refunded"]).gte("completed_at", sevenDayStart).lt("completed_at", tomorrow).order("completed_at", { ascending: false }),
     supabase.from("sale_items").select("product_name, quantity, refunded_quantity, conversion_to_piece, unit_price, line_total, sales!inner(status, completed_at)").in("sales.status", ["completed", "partially_refunded", "refunded"]).gte("sales.completed_at", sevenDayStart).lt("sales.completed_at", tomorrow),
+    supabase.from("supplies").select("id, name, qty, low_stock_threshold"),
   ]);
 
   const sales = (saleData ?? []) as unknown as DashboardSale[];
@@ -63,6 +64,10 @@ export default async function DashboardPage() {
     0,
   );
   const lowItems = (stockData ?? []).filter((item) => Number(item.stock_on_hand) <= Number(item.low_stock_threshold)).slice(0, 4);
+
+  const lowStockSupplies = (supplyData ?? [])
+    .filter((supply) => Number(supply.qty) <= Number(supply.low_stock_threshold))
+    .sort((a, b) => Number(a.qty) - Number(b.qty));
 
   const productTotals = new Map<string, { pieces: number; amount: number }>();
   for (const item of items) {
@@ -101,7 +106,7 @@ export default async function DashboardPage() {
     <div className="mx-auto max-w-[1450px]">
       <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end"><div><p className="eyebrow">Store command center</p><h1 className="mt-2 text-3xl font-black tracking-[-0.03em]">Good day, {user.fullName.split(" ")[0]}.</h1><p className="mt-2 text-sm text-[#718079]">Live sales, channel performance, and stock health at a glance.</p></div><div className="flex gap-2"><Link href="/dashboard/reports?range=7d" className="btn-secondary"><BarChart3 size={16} />Full reports</Link><Link href="/dashboard/pos" className="btn-primary"><ShoppingBag size={17} />New sale</Link></div></div>
 
-      <section className="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <section className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <Link className="card p-5 transition hover:-translate-y-0.5 hover:shadow-md" href="/dashboard/inventory">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
@@ -113,6 +118,16 @@ export default async function DashboardPage() {
           </div>
         </Link>
         {[{ label: "Today's sales", value: money(todayRevenue), note: `${todaySales.length} completed orders`, icon: CircleDollarSign, color: "bg-emerald-50 text-emerald-700" }, { label: "Average order", value: money(averageToday), note: "Today's transaction average", icon: ReceiptText, color: "bg-blue-50 text-blue-700" }, { label: "Best seller · 7 days", value: bestSeller?.[0] ?? "No sales yet", note: bestSeller ? `${bestSeller[1].pieces} pieces · ${money(bestSeller[1].amount)}` : "Complete a sale to begin", icon: Crown, color: "bg-amber-50 text-amber-700" }, { label: "Top channel · 7 days", value: topChannel ? channelNames[topChannel[0]] ?? topChannel[0] : "No sales yet", note: topChannel ? `${topChannel[1].count} orders · ${money(topChannel[1].amount)}` : "No channel data", icon: ShoppingBag, color: "bg-violet-50 text-violet-700" }].map(({ label, value, note, icon: Icon, color }) => <article key={label} className="card p-5"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-xs font-bold text-[#718078]">{label}</p><p className="mt-3 truncate text-2xl font-black tracking-tight">{value}</p><p className="mt-2 truncate text-xs text-[#8a958f]">{note}</p></div><span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${color}`}><Icon size={18} /></span></div></article>)}
+        <Link className="card p-5 transition hover:-translate-y-0.5 hover:shadow-md" href="/dashboard/supplies?status=low">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-xs font-bold text-[#718078]">Supplies needing attention</p>
+              <p className="mt-3 truncate text-2xl font-black tracking-tight">{lowStockSupplies.length.toLocaleString()}</p>
+              <p className="mt-2 truncate text-xs text-[#8a958f]">{lowStockSupplies.length ? "Need restocking" : "All sufficiently stocked"}</p>
+            </div>
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-50 text-amber-700"><Package size={18} /></span>
+          </div>
+        </Link>
       </section>
 
       <section className="mt-5 grid gap-5 xl:grid-cols-[1.65fr_1fr]">
@@ -126,7 +141,7 @@ export default async function DashboardPage() {
 
         <article className="card overflow-hidden"><div className="flex items-center justify-between border-b border-[#e7ece9] px-5 py-4"><div><h2 className="font-extrabold">Recent sales</h2><p className="mt-1 text-xs text-[#819087]">Latest transactions after refunds</p></div><Link href="/dashboard/sales" className="text-xs font-extrabold text-[#0f6b4f]">View all</Link></div><div className="divide-y divide-[#edf0ee]">{sales.slice(0, 5).map((sale) => <div className="flex items-center gap-3 px-5 py-3" key={sale.id}><span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#edf5f1] text-[#0f6b4f]"><ReceiptText size={16} /></span><div className="min-w-0 flex-1"><p className="truncate text-xs font-extrabold">{sale.receipt_number}</p><p className="mt-0.5 truncate text-[10px] text-[#89948e]">{channelNames[sale.sales_channel]} · {cashierName(sale)} · {sale.status.replaceAll("_", " ")}</p></div><div className="text-right"><p className="text-xs font-black">{money(Number(sale.total_amount) - Number(sale.refunded_amount))}</p><p className="mt-0.5 text-[10px] text-[#89948e]">{new Intl.DateTimeFormat("en-PH", { hour: "numeric", minute: "2-digit", timeZone: "Asia/Manila" }).format(new Date(sale.completed_at))}</p></div></div>)}{!sales.length && <p className="py-16 text-center text-xs text-[#87928c]">No recent sales.</p>}</div></article>
 
-        <div className="grid gap-5"><article className="card p-5"><div className="flex items-center justify-between"><div><h2 className="font-extrabold">Payment mix</h2><p className="mt-1 text-xs text-[#819087]">Last 7 days</p></div><WalletCards size={18} className="text-[#0f6b4f]" /></div><div className="mt-4 grid grid-cols-2 gap-2">{[{ key: "cash", label: "Cash" }, { key: "gcash", label: "GCash" }, { key: "credit_card", label: "Credit Card" }, { key: "marketplace", label: "Online" }].map((payment) => <div className="rounded-xl bg-[#f5f8f6] p-2.5 text-center" key={payment.key}><p className="text-[10px] font-bold text-[#7d8983]">{payment.label}</p><p className="mt-1 text-xs font-black">{money(paymentTotals.get(payment.key) ?? 0)}</p></div>)}</div></article><article className="card p-5"><div className="flex items-center justify-between"><div><h2 className="font-extrabold">Stock attention</h2><p className="mt-1 text-xs text-[#819087]">{lowItems.length} low-stock items · {productCount ?? 0} active</p></div><TriangleAlert size={18} className={lowItems.length ? "text-orange-600" : "text-emerald-600"} /></div><div className="mt-4 space-y-2">{lowItems.length ? lowItems.map((item) => <div className="flex items-center gap-2" key={item.id}><span className="grid h-8 w-8 place-items-center rounded-lg bg-orange-50 text-orange-600"><Boxes size={14} /></span><p className="min-w-0 flex-1 truncate text-xs font-bold">{item.name}</p><span className="text-[10px] font-extrabold text-red-600">{item.stock_on_hand} PCS</span></div>) : <div className="flex items-center gap-3 rounded-xl bg-emerald-50 p-3 text-emerald-700"><PackageCheck size={18} /><span className="text-xs font-bold">Stock looks healthy</span></div>}</div><Link href="/dashboard/inventory" className="mt-4 flex items-center justify-center gap-1 text-[11px] font-extrabold text-[#0f6b4f]">Manage inventory <ArrowRight size={12} /></Link></article></div>
+        <div className="grid gap-5"><article className="card p-5"><div className="flex items-center justify-between"><div><h2 className="font-extrabold">Payment mix</h2><p className="mt-1 text-xs text-[#819087]">Last 7 days</p></div><WalletCards size={18} className="text-[#0f6b4f]" /></div><div className="mt-4 grid grid-cols-2 gap-2">{[{ key: "cash", label: "Cash" }, { key: "gcash", label: "GCash" }, { key: "credit_card", label: "Credit Card" }, { key: "marketplace", label: "Online" }].map((payment) => <div className="rounded-xl bg-[#f5f8f6] p-2.5 text-center" key={payment.key}><p className="text-[10px] font-bold text-[#7d8983]">{payment.label}</p><p className="mt-1 text-xs font-black">{money(paymentTotals.get(payment.key) ?? 0)}</p></div>)}</div></article><article className="card p-5"><div className="flex items-center justify-between"><div><h2 className="font-extrabold">Stock attention</h2><p className="mt-1 text-xs text-[#819087]">{lowItems.length} low-stock items · {productCount ?? 0} active</p></div><TriangleAlert size={18} className={lowItems.length ? "text-orange-600" : "text-emerald-600"} /></div><div className="mt-4 space-y-2">{lowItems.length ? lowItems.map((item) => <div className="flex items-center gap-2" key={item.id}><span className="grid h-8 w-8 place-items-center rounded-lg bg-orange-50 text-orange-600"><Boxes size={14} /></span><p className="min-w-0 flex-1 truncate text-xs font-bold">{item.name}</p><span className="text-[10px] font-extrabold text-red-600">{item.stock_on_hand} PCS</span></div>) : <div className="flex items-center gap-3 rounded-xl bg-emerald-50 p-3 text-emerald-700"><PackageCheck size={18} /><span className="text-xs font-bold">Stock looks healthy</span></div>}</div><Link href="/dashboard/inventory" className="mt-4 flex items-center justify-center gap-1 text-[11px] font-extrabold text-[#0f6b4f]">Manage inventory <ArrowRight size={12} /></Link></article><article className="card p-5"><div className="flex items-center justify-between"><div><h2 className="font-extrabold">Low Stock Supplies</h2><p className="mt-1 text-xs text-[#819087]">{lowStockSupplies.length} item(s) need restocking</p></div><Package size={18} className={lowStockSupplies.length ? "text-orange-600" : "text-emerald-600"} /></div><div className="mt-4 space-y-2">{lowStockSupplies.length ? lowStockSupplies.slice(0, 5).map((supply) => <Link className="flex items-center gap-2 rounded-lg hover:bg-[#f7f9f8]" href={`/dashboard/supplies?status=low#supply-${supply.id}`} key={supply.id}><span className="grid h-8 w-8 place-items-center rounded-lg bg-orange-50 text-orange-600"><Package size={14} /></span><p className="min-w-0 flex-1 truncate text-xs font-bold">{supply.name}</p><span className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold ${Number(supply.qty) === 0 ? "bg-red-50 text-red-600" : "bg-amber-50 text-amber-700"}`}>{supply.qty} · {Number(supply.qty) === 0 ? "OUT" : "LOW"}</span></Link>) : <div className="flex items-center gap-3 rounded-xl bg-emerald-50 p-3 text-emerald-700"><PackageCheck size={18} /><span className="text-xs font-bold">All supplies are sufficiently stocked</span></div>}</div><Link href="/dashboard/supplies?status=low" className="mt-4 flex items-center justify-center gap-1 text-[11px] font-extrabold text-[#0f6b4f]">View all <ArrowRight size={12} /></Link></article></div>
       </section>
     </div>
   );
