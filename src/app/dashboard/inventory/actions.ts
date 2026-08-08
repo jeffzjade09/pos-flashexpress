@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireSuperAdmin, requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { isVariantColorPreset } from "@/lib/variant-colors";
 
 export type ProductActionState = {
   error?: string;
@@ -282,4 +283,37 @@ export async function renameProductFamily(
   revalidatePath("/dashboard/purchases");
   revalidatePath("/dashboard/reports");
   return { success: `Renamed to ${name}.` };
+}
+
+export type VariantColorState = { error?: string; success?: string };
+
+export async function setVariantValueColor(
+  _: VariantColorState,
+  formData: FormData,
+): Promise<VariantColorState> {
+  await requireUser();
+
+  const variantType = String(formData.get("variantType") ?? "").trim();
+  const variantValue = String(formData.get("variantValue") ?? "").trim();
+  const color = String(formData.get("color") ?? "").trim();
+
+  if (!variantType || !variantValue) return { error: "The variant is missing." };
+  if (!isVariantColorPreset(color)) return { error: "Choose a valid color." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("set_variant_value_color", {
+    p_variant_type: variantType,
+    p_variant_value: variantValue,
+    p_color: color,
+  });
+
+  if (error) {
+    if (error.code === "PGRST202" || error.message.includes("set_variant_value_color")) {
+      return { error: "The variant color tagging database update has not been installed yet." };
+    }
+    return { error: error.message || "Could not set the variant color." };
+  }
+
+  revalidatePath("/dashboard/inventory");
+  return { success: "Color updated." };
 }

@@ -6,20 +6,39 @@ import { CreateProductFamilyForm } from "@/components/create-product-family-form
 import { DeleteProductButton } from "@/components/delete-product-button";
 import { EditProductForm } from "@/components/edit-product-form";
 import { InventoryFamilyGroup } from "@/components/inventory-family-group";
+import { VariantAttributeChip } from "@/components/variant-attribute-chip";
 import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { defaultVariantColor, variantColorKey, type VariantColorPreset } from "@/lib/variant-colors";
 
 function money(value: number) {
   return new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(value);
 }
 
+type ProductStockRow = {
+  id: string;
+  sku: string;
+  barcode: string | null;
+  name: string;
+  variant_label: string | null;
+  variant_attributes: { type: string; value: string }[] | null;
+  family_id: string;
+  family_name: string | null;
+  category_name: string | null;
+  cost_per_piece: number | string;
+  stock_on_hand: number | string;
+  low_stock_threshold: number | string;
+  is_active: boolean;
+};
+
 export default async function InventoryPage({ searchParams }: { searchParams: Promise<{ print?: string }> }) {
   const params = await searchParams;
   const user = await requireUser();
   const supabase = await createClient();
-  const [{ data: products, error: productsError }, { data: productUnits, error: unitsError }] = await Promise.all([
+  const [{ data: products, error: productsError }, { data: productUnits, error: unitsError }, { data: colorRows }] = await Promise.all([
     supabase.from("product_stock").select("id, sku, barcode, name, variant_label, variant_attributes, family_id, family_name, category_name, cost_per_piece, stock_on_hand, low_stock_threshold, is_active").eq("is_active", true).order("name"),
     supabase.from("product_units").select("product_id, name, conversion_to_piece, selling_price, is_active"),
+    supabase.from("variant_value_colors").select("variant_type, variant_value, color"),
   ]);
   const unitsByProduct = new Map<string, typeof productUnits>();
   for (const unit of productUnits ?? []) {
@@ -27,60 +46,102 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
     units.push(unit);
     unitsByProduct.set(unit.product_id, units);
   }
-  const activeProducts = products ?? [];
+  const colorByVariant = new Map<string, VariantColorPreset>();
+  for (const row of colorRows ?? []) {
+    colorByVariant.set(variantColorKey(row.variant_type, row.variant_value), row.color as VariantColorPreset);
+  }
+  function colorFor(type: string, value: string): VariantColorPreset {
+    return colorByVariant.get(variantColorKey(type, value)) ?? defaultVariantColor(type, value);
+  }
+
+  const activeProducts = (products ?? []) as ProductStockRow[];
   const totalPieces = activeProducts.reduce((sum, product) => sum + Number(product.stock_on_hand), 0);
   const totalInventoryValue = activeProducts.reduce(
     (sum, product) => sum + Number(product.stock_on_hand) * Number(product.cost_per_piece),
     0,
   );
 
-  const familyGroups = new Map<string, typeof products>();
+  const familyGroups = new Map<string, ProductStockRow[]>();
   for (const product of activeProducts) {
     const group = familyGroups.get(product.family_id) ?? [];
     group.push(product);
     familyGroups.set(product.family_id, group);
   }
 
-  function productRow(product: NonNullable<typeof products>[number]) {
+  function actionsCell(product: ProductStockRow, displayName: string, pieceUnit: { selling_price: number | string } | undefined, boxUnit: { selling_price: number | string; conversion_to_piece: number | string } | undefined) {
+    return (
+      <div className="flex items-center justify-end gap-2">
+        {user.role === "super_admin" && (
+          <EditProductForm
+            product={{
+              id: product.id,
+              familyId: product.family_id,
+              name: product.name,
+              variantAttributes: product.variant_attributes ?? [],
+              sku: product.sku,
+              category: product.category_name ?? "",
+              barcode: product.barcode ?? "",
+              costPerPiece: Number(product.cost_per_piece),
+              piecePrice: Number(pieceUnit?.selling_price ?? 0),
+              piecesPerBox: Number(boxUnit?.conversion_to_piece ?? 1),
+              boxPrice: Number(boxUnit?.selling_price ?? 0),
+              lowStockThreshold: Number(product.low_stock_threshold),
+            }}
+          />
+        )}
+        <AdjustStockForm productId={product.id} productName={displayName} currentStock={Number(product.stock_on_hand)} piecesPerBox={boxUnit ? Number(boxUnit.conversion_to_piece) : undefined} />
+        {user.role === "super_admin" && <DeleteProductButton productId={product.id} productName={displayName} stockOnHand={Number(product.stock_on_hand)} />}
+      </div>
+    );
+  }
+
+  function trailingCells(product: ProductStockRow, displayName: string) {
     const low = Number(product.stock_on_hand) <= Number(product.low_stock_threshold);
     const units = unitsByProduct.get(product.id) ?? [];
     const pieceUnit = units.find((unit) => unit.name === "Piece");
     const boxUnit = units.find((unit) => unit.name === "Box" && unit.is_active);
-    const displayName = `${product.name}${product.variant_label ? ` — ${product.variant_label}` : ""}`;
     const productValue = Number(product.stock_on_hand) * Number(product.cost_per_piece);
     return (
-      <tr key={product.id} className="border-b border-[#edf0ee] last:border-0 hover:bg-[#fbfcfb]">
-        <td className="px-5 py-4"><div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#edf5f1] text-[#0f6b4f]"><Boxes size={18} /></span><span><span className="block font-bold">{product.name}</span>{product.variant_label && <span className="mt-0.5 block text-xs font-semibold text-[#7d8a83]">{product.variant_label}</span>}</span></div></td>
+      <>
         <td className="px-5 py-4 text-sm text-[#6f7d76]">{product.sku}</td>
         <td className="px-5 py-4 text-sm text-[#6f7d76]">{product.category_name ?? "Uncategorized"}</td>
         <td className="px-5 py-4 text-sm font-extrabold">{product.stock_on_hand} <span className="font-medium text-[#8a958f]">pcs</span></td>
         <td className="px-5 py-4 text-right text-sm font-bold text-[#64736b]">{money(Number(product.cost_per_piece))}</td>
         <td className="px-5 py-4 text-right text-sm font-black text-[#0f6b4f]">{money(productValue)}</td>
         <td className="px-5 py-4"><span className={`rounded-full px-2.5 py-1 text-[10px] font-extrabold ${low ? "bg-red-50 text-red-600" : "bg-emerald-50 text-emerald-700"}`}>{low ? "LOW STOCK" : "IN STOCK"}</span></td>
-        <td className="px-5 py-4">
-          <div className="flex items-center justify-end gap-2">
-            {user.role === "super_admin" && (
-              <EditProductForm
-                product={{
-                  id: product.id,
-                  familyId: product.family_id,
-                  name: product.name,
-                  variantAttributes: (product.variant_attributes ?? []) as { type: string; value: string }[],
-                  sku: product.sku,
-                  category: product.category_name ?? "",
-                  barcode: product.barcode ?? "",
-                  costPerPiece: Number(product.cost_per_piece),
-                  piecePrice: Number(pieceUnit?.selling_price ?? 0),
-                  piecesPerBox: Number(boxUnit?.conversion_to_piece ?? 1),
-                  boxPrice: Number(boxUnit?.selling_price ?? 0),
-                  lowStockThreshold: Number(product.low_stock_threshold),
-                }}
-              />
-            )}
-            <AdjustStockForm productId={product.id} productName={displayName} currentStock={Number(product.stock_on_hand)} piecesPerBox={boxUnit ? Number(boxUnit.conversion_to_piece) : undefined} />
-            {user.role === "super_admin" && <DeleteProductButton productId={product.id} productName={displayName} stockOnHand={Number(product.stock_on_hand)} />}
+        <td className="px-5 py-4">{actionsCell(product, displayName, pieceUnit, boxUnit)}</td>
+      </>
+    );
+  }
+
+  function productRow(product: ProductStockRow) {
+    const displayName = `${product.name}${product.variant_label ? ` — ${product.variant_label}` : ""}`;
+    return (
+      <tr key={product.id} className="border-b border-[#edf0ee] last:border-0 hover:bg-[#fbfcfb]">
+        <td className="px-5 py-4"><div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#edf5f1] text-[#0f6b4f]"><Boxes size={18} /></span><span><span className="block font-bold">{product.name}</span>{product.variant_label && <span className="mt-0.5 block text-xs font-semibold text-[#7d8a83]">{product.variant_label}</span>}</span></div></td>
+        {trailingCells(product, displayName)}
+      </tr>
+    );
+  }
+
+  function variantRow(product: ProductStockRow) {
+    const displayName = `${product.name}${product.variant_label ? ` — ${product.variant_label}` : ""}`;
+    const attributes = product.variant_attributes ?? [];
+    return (
+      <tr key={product.id} className="border-b border-[#edf0ee] bg-[#fcfdfc] last:border-0 hover:bg-[#f6f9f7]">
+        <td className="border-l-2 border-l-[#dde6e1] px-5 py-3">
+          <div className="relative flex items-center gap-2.5 pl-7">
+            <span aria-hidden className="absolute left-2.5 top-0 h-1/2 w-px bg-[#d8e0dc]" />
+            <span aria-hidden className="absolute left-2.5 top-1/2 h-px w-3.5 bg-[#d8e0dc]" />
+            <div className="flex flex-wrap items-center gap-1.5">
+              {attributes.map((attribute) => (
+                <VariantAttributeChip color={colorFor(attribute.type, attribute.value)} key={`${attribute.type}:${attribute.value}`} type={attribute.type} value={attribute.value} />
+              ))}
+            </div>
           </div>
+          <p className="mt-1 pl-7 text-[11px] font-medium text-[#a3ada8]">{product.name}</p>
         </td>
+        {trailingCells(product, displayName)}
       </tr>
     );
   }
@@ -116,7 +177,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                     totalStock={totalStock}
                     totalValue={money(totalValue)}
                   >
-                    {group.map((product) => productRow(product))}
+                    {group.map((product) => variantRow(product))}
                   </InventoryFamilyGroup>
                 );
               })}
