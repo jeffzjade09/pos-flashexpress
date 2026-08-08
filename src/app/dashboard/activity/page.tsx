@@ -74,7 +74,7 @@ function detailText(log: AuditLog) {
     const total = Number(details.total_amount ?? 0);
     const channelLabel = channel === "walk_in" ? "Walk-in" : `${channel.charAt(0).toUpperCase()}${channel.slice(1)}`;
     const reference = orderId || paymentReference;
-    const payment = paymentMethod === "gcash" ? "GCash" : paymentMethod === "cash" ? "Cash" : "";
+    const payment = paymentMethod === "gcash" ? "GCash" : paymentMethod === "credit_card" ? "Credit Card" : paymentMethod === "cash" ? "Cash" : "";
     return `${channelLabel}${reference ? ` ref ${reference}` : " sale"}${payment ? ` · ${payment}` : ""} · ${new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(total)}`;
   }
   if (log.action === "sale.refunded") {
