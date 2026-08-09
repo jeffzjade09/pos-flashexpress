@@ -106,7 +106,7 @@ export default async function DashboardPage() {
     <div className="mx-auto max-w-[1450px]">
       <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end"><div><p className="eyebrow">Store command center</p><h1 className="mt-2 text-3xl font-black tracking-[-0.03em]">Good day, {user.fullName.split(" ")[0]}.</h1><p className="mt-2 text-sm text-[#718079]">Live sales, channel performance, and stock health at a glance.</p></div><div className="flex gap-2"><Link href="/dashboard/reports?range=7d" className="btn-secondary"><BarChart3 size={16} />Full reports</Link><Link href="/dashboard/pos" className="btn-primary"><ShoppingBag size={17} />New sale</Link></div></div>
 
-      <section className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <section className="mt-7 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Link className="card p-5 transition hover:-translate-y-0.5 hover:shadow-md" href="/dashboard/inventory">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
