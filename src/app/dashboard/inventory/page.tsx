@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { Boxes, CircleDollarSign, Download, Filter, PackageSearch, Search } from "lucide-react";
+import { Boxes, CircleDollarSign, Download, Filter, PackageSearch } from "lucide-react";
 import { AdjustStockForm } from "@/components/adjust-stock-form";
 import { AutoPrint } from "@/components/auto-print";
 import { CreateProductFamilyForm } from "@/components/create-product-family-form";
 import { DeleteProductButton } from "@/components/delete-product-button";
 import { EditProductForm } from "@/components/edit-product-form";
 import { InventoryFamilyGroup } from "@/components/inventory-family-group";
+import { InventorySearchBox } from "@/components/inventory-search-box";
 import { VariantAttributeChip } from "@/components/variant-attribute-chip";
 import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -31,8 +32,9 @@ type ProductStockRow = {
   is_active: boolean;
 };
 
-export default async function InventoryPage({ searchParams }: { searchParams: Promise<{ print?: string }> }) {
+export default async function InventoryPage({ searchParams }: { searchParams: Promise<{ print?: string; q?: string }> }) {
   const params = await searchParams;
+  const query = (params.q ?? "").trim().toLowerCase();
   const user = await requireUser();
   const supabase = await createClient();
   const [{ data: products, error: productsError }, { data: productUnits, error: unitsError }, { data: colorRows }] = await Promise.all([
@@ -61,8 +63,14 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
     0,
   );
 
+  const filteredProducts = query
+    ? activeProducts.filter((product) =>
+        [product.name, product.sku, product.barcode, product.variant_label, product.family_name, product.category_name]
+          .some((field) => field && field.toLowerCase().includes(query)))
+    : activeProducts;
+
   const familyGroups = new Map<string, ProductStockRow[]>();
-  for (const product of activeProducts) {
+  for (const product of filteredProducts) {
     const group = familyGroups.get(product.family_id) ?? [];
     group.push(product);
     familyGroups.set(product.family_id, group);
@@ -157,7 +165,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
         <article className="card p-5"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold text-[#718078]">Total pieces on hand</p><p className="mt-3 text-3xl font-black tracking-tight">{totalPieces.toLocaleString()}</p><p className="mt-2 text-xs text-[#89948e]">Combined physical pieces across products</p></div><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-violet-50 text-violet-700"><Boxes size={18} /></span></div></article>
       </section>
       <div className="card mt-7 overflow-hidden">
-        <div className="print-hidden flex flex-col gap-3 border-b border-[#e5eae7] p-4 sm:flex-row sm:items-center sm:justify-between"><div className="relative w-full max-w-md"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#89958f]" size={17} /><input className="field py-2.5 pl-9 text-sm" placeholder="Search product, SKU, or barcode" /></div><button className="btn-secondary"><Filter size={15} />Filters</button></div>
+        <div className="print-hidden flex flex-col gap-3 border-b border-[#e5eae7] p-4 sm:flex-row sm:items-center sm:justify-between"><InventorySearchBox defaultValue={params.q ?? ""} /><button className="btn-secondary"><Filter size={15} />Filters</button></div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[1320px] text-left">
             <thead><tr className="border-b border-[#e9eeeb] bg-[#fafcfa] text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#87928c]"><th className="px-5 py-3.5">Product</th><th className="px-5 py-3.5">SKU</th><th className="px-5 py-3.5">Category</th><th className="px-5 py-3.5">On hand</th><th className="px-5 py-3.5 text-right">Cost / piece</th><th className="px-5 py-3.5 text-right">Product total</th><th className="px-5 py-3.5">Status</th><th className="px-5 py-3.5 text-right">Actions</th></tr></thead>
@@ -170,18 +178,40 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                 const totalValue = group.reduce((sum, product) => sum + Number(product.stock_on_hand) * Number(product.cost_per_piece), 0);
                 return (
                   <InventoryFamilyGroup
-                    key={group[0].family_id}
+                    key={`${group[0].family_id}-${query ? "search" : "browse"}`}
                     familyName={familyName}
                     categoryName={group[0].category_name ?? "Uncategorized"}
                     combinationCount={group.length}
                     totalStock={totalStock}
                     totalValue={money(totalValue)}
+                    defaultOpen={Boolean(query)}
                   >
                     {group.map((product) => variantRow(product))}
                   </InventoryFamilyGroup>
                 );
               })}
-              {!activeProducts.length && <tr><td colSpan={8}><div className="grid min-h-72 place-items-center text-center"><div><Boxes className="mx-auto text-[#a5afa9]" size={34} /><p className="mt-4 text-sm font-bold">No products yet</p><p className="mt-1 text-xs text-[#87928c]">Add your first product to start tracking stock.</p></div></div></td></tr>}
+              {!filteredProducts.length && (
+                <tr>
+                  <td colSpan={8}>
+                    <div className="grid min-h-72 place-items-center text-center">
+                      <div>
+                        <Boxes className="mx-auto text-[#a5afa9]" size={34} />
+                        {query ? (
+                          <>
+                            <p className="mt-4 text-sm font-bold">No matching products</p>
+                            <p className="mt-1 text-xs text-[#87928c]">Try a different search term.</p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="mt-4 text-sm font-bold">No products yet</p>
+                            <p className="mt-1 text-xs text-[#87928c]">Add your first product to start tracking stock.</p>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
