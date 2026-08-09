@@ -26,7 +26,9 @@ import {
   X,
 } from "lucide-react";
 import { logout } from "@/app/auth/actions";
+import { NotificationBell } from "@/components/notification-bell";
 import type { CurrentUser } from "@/lib/auth";
+import type { NotificationRow } from "@/lib/notifications";
 
 const nav = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
@@ -39,7 +41,7 @@ const nav = [
   { href: "/dashboard/closing", label: "Daily closing", icon: ClipboardCheck },
 ];
 
-export function DashboardShell({ user, children }: { user: CurrentUser; children: React.ReactNode }) {
+export function DashboardShell({ user, notifications, children }: { user: CurrentUser; notifications: NotificationRow[]; children: React.ReactNode }) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const initial = user.fullName.charAt(0).toUpperCase();
@@ -103,6 +105,7 @@ export function DashboardShell({ user, children }: { user: CurrentUser; children
           <div className="hidden items-center gap-2 text-sm text-[#7d8983] xl:flex"><span>Store</span><span>/</span><span className="font-semibold text-[#34453d]">{nav.find((item) => pathname === item.href)?.label ?? "Workspace"}</span></div>
           <div className="flex items-center gap-2">
             <div className="hidden items-center gap-2 rounded-full border border-[#dfe6e2] bg-white px-3 py-1.5 text-xs font-semibold text-[#52635a] sm:flex"><span className="h-2 w-2 rounded-full bg-emerald-500" />System online</div>
+            <NotificationBell notifications={notifications} />
             <div className="grid h-9 w-9 place-items-center rounded-full bg-[#e4f1eb] text-xs font-black text-[#0f6b4f] xl:hidden">{initial}</div>
           </div>
         </header>

@@ -9,6 +9,7 @@ export function InventoryFamilyGroup({
   combinationCount,
   totalStock,
   totalValue,
+  defaultOpen = false,
   children,
 }: {
   familyName: string;
@@ -16,9 +17,10 @@ export function InventoryFamilyGroup({
   combinationCount: number;
   totalStock: number;
   totalValue: string;
+  defaultOpen?: boolean;
   children: React.ReactNode;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   return (
     <>
       <tr className="border-b border-[#edf0ee] bg-[#fafcfa] hover:bg-[#f4f8f6]">
