@@ -14,7 +14,9 @@ import {
   Users,
   WalletCards,
 } from "lucide-react";
+import { StoreSettingsForm } from "@/components/store-settings-form";
 import { requireSuperAdmin } from "@/lib/auth";
+import { fetchStoreSettings } from "@/lib/store-settings";
 import { createClient } from "@/lib/supabase/server";
 
 const printReports = [
@@ -37,10 +39,11 @@ export default async function SettingsPage() {
   await requireSuperAdmin();
   const supabase = await createClient();
   const currentMonth = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Manila", year: "numeric", month: "2-digit" }).format(new Date());
-  const [{ data: stock }, { data: openOrders }, { data: staff }] = await Promise.all([
+  const [{ data: stock }, { data: openOrders }, { data: staff }, storeSettings] = await Promise.all([
     supabase.from("product_stock").select("id, stock_on_hand, low_stock_threshold").eq("is_active", true),
     supabase.from("purchase_orders").select("id").in("status", ["ordered", "partially_received"]),
     supabase.from("profiles").select("id").eq("is_active", true),
+    fetchStoreSettings(supabase),
   ]);
   const lowStock = (stock ?? []).filter((product) => Number(product.stock_on_hand) <= Number(product.low_stock_threshold)).length;
 
@@ -64,6 +67,16 @@ export default async function SettingsPage() {
             <p className="mt-2 text-xs text-[#89948e]">{note}</p>
           </article>
         ))}
+      </section>
+
+      <section className="card mt-5 overflow-hidden">
+        <div className="flex items-center justify-between gap-3 px-6 py-5">
+          <div className="flex items-start gap-3">
+            <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#e9f4ef] text-[#0f6b4f]"><PackageSearch size={18} /></span>
+            <div><h2 className="font-extrabold">Business info</h2><p className="mt-1 text-xs text-[#819087]">Company name, address, contact, and sales officer shown on every exported Purchase Order.</p></div>
+          </div>
+          <StoreSettingsForm settings={storeSettings} />
+        </div>
       </section>
 
       <section className="card mt-5 overflow-hidden">
