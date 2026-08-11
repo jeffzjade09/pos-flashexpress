@@ -1,12 +1,14 @@
 "use client";
 
 import { useActionState, useMemo, useState } from "react";
-import { PackagePlus, Plus, Truck, X } from "lucide-react";
-import { createPurchase, createSupplier, receivePurchase, type PurchaseState } from "@/app/dashboard/purchases/actions";
+import Link from "next/link";
+import { PackagePlus, Plus, Save, Truck, X } from "lucide-react";
+import { createPurchase, createSupplier, receivePurchase, updatePurchaseOrder, type PurchaseState } from "@/app/dashboard/purchases/actions";
 
 type Supplier = { id: string; name: string };
 type Product = { id: string; name: string; sku: string; cost: number };
 export type PurchaseItem = { id: string; productName: string; quantityPieces: number; receivedPieces: number; unitCost: number };
+export type EditableLine = { product_id: string; product_name: string; quantity_pieces: number; unit_cost: number };
 type DraftLine = { product_id: string; quantity_pieces: number; unit_cost: number };
 const initial: PurchaseState = {};
 const money = (value: number) => new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(value);
@@ -25,6 +27,97 @@ export function PurchaseOrderForm({ suppliers, products }: { suppliers: Supplier
   const total = lines.reduce((sum, line) => sum + line.quantity_pieces * line.unit_cost, 0);
   function addLine() { const product = products.find((item) => item.id === selected); if (!product || lines.some((line) => line.product_id === product.id)) return; setLines((current) => [...current, { product_id: product.id, quantity_pieces: 1, unit_cost: product.cost }]); }
   return <><button className="btn-primary" disabled={!suppliers.length || !products.length} onClick={() => setOpen(true)} type="button"><PackagePlus size={16} />New purchase order</button>{open && <Modal title="New purchase order" close={() => setOpen(false)} wide><form action={action}><div className="grid gap-4 sm:grid-cols-2"><label className="text-xs font-bold"><span className="mb-1.5 block">Supplier</span><select className="field text-sm" name="supplierId" required><option value="">Choose supplier</option>{suppliers.map((supplier) => <option key={supplier.id} value={supplier.id}>{supplier.name}</option>)}</select></label><Field label="Supplier reference" name="supplierReference" /></div><div className="mt-5 flex gap-2"><select className="field text-sm" value={selected} onChange={(event) => setSelected(event.target.value)}>{products.map((product) => <option key={product.id} value={product.id}>{product.name} · {product.sku}</option>)}</select><button className="btn-secondary shrink-0" onClick={addLine} type="button"><Plus size={15} />Add</button></div><input name="items" type="hidden" value={JSON.stringify(lines)} /><div className="mt-4 space-y-2">{lines.map((line) => { const product = products.find((item) => item.id === line.product_id)!; return <div className="grid items-end gap-2 rounded-xl border border-[#e3e8e5] p-3 sm:grid-cols-[1fr_120px_140px_90px]" key={line.product_id}><div><p className="text-sm font-extrabold">{product.name}</p><p className="text-[10px] text-[#89948e]">Ordered in individual pieces</p></div><Field label="Pieces" name={`qty-${line.product_id}`} type="number" value={line.quantity_pieces} onChange={(value) => setLines((current) => current.map((item) => item.product_id === line.product_id ? { ...item, quantity_pieces: Math.max(1, Number(value) || 1) } : item))} /><Field label="Cost / piece" name={`cost-${line.product_id}`} type="number" value={line.unit_cost} onChange={(value) => setLines((current) => current.map((item) => item.product_id === line.product_id ? { ...item, unit_cost: Math.max(0, Number(value) || 0) } : item))} /><button className="btn-secondary py-2 text-xs" onClick={() => setLines((current) => current.filter((item) => item.product_id !== line.product_id))} type="button">Remove</button></div>; })}{!lines.length && <p className="rounded-xl bg-[#f5f8f6] py-8 text-center text-xs text-[#849088]">Add products to the purchase order.</p>}</div><label className="mt-4 block text-xs font-bold"><span className="mb-1.5 block">Notes</span><textarea className="field min-h-16 text-sm" name="notes" /></label>{state.error && <ErrorMessage text={state.error} />}<div className="mt-5 flex items-center justify-between"><div><p className="text-[10px] font-bold text-[#87928c]">ORDER TOTAL</p><p className="text-xl font-black">{money(total)}</p></div><button className="btn-primary" disabled={pending || !lines.length}>{pending ? "Creating…" : "Create order"}</button></div></form></Modal>}</>;
+}
+
+export function EditPurchaseOrderForm({ purchaseOrderId, suppliers, products, initialSupplierId, initialSupplierReference, initialNotes, initialLines }: { purchaseOrderId: string; suppliers: Supplier[]; products: Product[]; initialSupplierId: string; initialSupplierReference: string; initialNotes: string; initialLines: EditableLine[] }) {
+  const [lines, setLines] = useState<EditableLine[]>(initialLines);
+  const [selected, setSelected] = useState(products[0]?.id ?? "");
+  const [state, action, pending] = useActionState(updatePurchaseOrder, initial);
+  const total = lines.reduce((sum, line) => sum + line.quantity_pieces * line.unit_cost, 0);
+
+  function addLine() {
+    const product = products.find((item) => item.id === selected);
+    if (!product || lines.some((line) => line.product_id === product.id)) return;
+    setLines((current) => [...current, { product_id: product.id, product_name: product.name, quantity_pieces: 1, unit_cost: product.cost }]);
+  }
+
+  const payload = lines.map((line) => ({ product_id: line.product_id, quantity_pieces: line.quantity_pieces, unit_cost: line.unit_cost }));
+
+  return (
+    <form action={action} className="mt-7">
+      <input name="purchaseOrderId" type="hidden" value={purchaseOrderId} />
+      <input name="items" type="hidden" value={JSON.stringify(payload)} />
+
+      <div className="card p-5">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="text-xs font-bold">
+            <span className="mb-1.5 block">Supplier</span>
+            <select className="field text-sm" defaultValue={initialSupplierId} name="supplierId" required>
+              <option value="">Choose supplier</option>
+              {suppliers.map((supplier) => (
+                <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
+              ))}
+            </select>
+          </label>
+          <label className="text-xs font-bold">
+            <span className="mb-1.5 block">Supplier reference</span>
+            <input className="field text-sm" defaultValue={initialSupplierReference} name="supplierReference" />
+          </label>
+        </div>
+      </div>
+
+      <div className="card mt-5 overflow-hidden">
+        <div className="border-b border-[#e5eae7] px-5 py-4">
+          <h2 className="font-extrabold">Products</h2>
+          <p className="mt-1 text-xs text-[#819087]">{lines.length} product{lines.length === 1 ? "" : "s"} in this order</p>
+        </div>
+        <div className="space-y-2 p-4">
+          {lines.map((line) => (
+            <div className="grid items-end gap-2 rounded-xl border border-[#e3e8e5] p-3 sm:grid-cols-[1fr_120px_140px_90px]" key={line.product_id}>
+              <div>
+                <p className="text-sm font-extrabold">{line.product_name}</p>
+                <p className="text-[10px] text-[#89948e]">Ordered in individual pieces</p>
+              </div>
+              <Field label="Pieces" name={`qty-${line.product_id}`} type="number" value={line.quantity_pieces} onChange={(value) => setLines((current) => current.map((item) => item.product_id === line.product_id ? { ...item, quantity_pieces: Math.max(1, Number(value) || 1) } : item))} />
+              <Field label="Cost / piece" name={`cost-${line.product_id}`} type="number" value={line.unit_cost} onChange={(value) => setLines((current) => current.map((item) => item.product_id === line.product_id ? { ...item, unit_cost: Math.max(0, Number(value) || 0) } : item))} />
+              <button className="btn-secondary py-2 text-xs" onClick={() => setLines((current) => current.filter((item) => item.product_id !== line.product_id))} type="button">Remove</button>
+            </div>
+          ))}
+          {!lines.length && <p className="rounded-xl bg-[#f5f8f6] py-8 text-center text-xs text-[#849088]">Add at least one product to this order.</p>}
+        </div>
+        <div className="flex flex-col gap-2 border-t border-[#e5eae7] p-4 sm:flex-row">
+          <select className="field text-sm" onChange={(event) => setSelected(event.target.value)} value={selected}>
+            {products.map((product) => (
+              <option key={product.id} value={product.id}>{product.name} · {product.sku}</option>
+            ))}
+          </select>
+          <button className="btn-secondary shrink-0" onClick={addLine} type="button">
+            <Plus size={15} />Add product
+          </button>
+        </div>
+      </div>
+
+      <label className="mt-5 block text-xs font-bold">
+        <span className="mb-1.5 block">Notes</span>
+        <textarea className="field min-h-16 text-sm" defaultValue={initialNotes} name="notes" />
+      </label>
+
+      {state.error && <ErrorMessage text={state.error} />}
+
+      <div className="mt-5 flex items-center justify-between">
+        <div>
+          <p className="text-[10px] font-bold text-[#87928c]">ORDER TOTAL</p>
+          <p className="text-xl font-black">{money(total)}</p>
+        </div>
+        <div className="flex gap-2">
+          <Link className="btn-secondary" href="/dashboard/purchases">Cancel</Link>
+          <button className="btn-primary" disabled={pending || !lines.length} type="submit">
+            <Save size={16} />{pending ? "Saving…" : "Save changes"}
+          </button>
+        </div>
+      </div>
+    </form>
+  );
 }
 
 export function ReceivePurchaseButton({ purchaseOrderId, items }: { purchaseOrderId: string; items: PurchaseItem[] }) {

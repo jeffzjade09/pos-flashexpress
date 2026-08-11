@@ -61,6 +61,38 @@ export async function approveReorderPurchase(_: PurchaseState, formData: FormDat
   redirect(`/dashboard/purchases/${poId}/print`);
 }
 
+export async function updatePurchaseOrder(_: PurchaseState, formData: FormData): Promise<PurchaseState> {
+  await requireSuperAdmin();
+  const purchaseOrderId = String(formData.get("purchaseOrderId") ?? "");
+  const supplierId = String(formData.get("supplierId") ?? "");
+  let items: unknown;
+  try { items = JSON.parse(String(formData.get("items") ?? "[]")); } catch { return { error: "Purchase items could not be read." }; }
+  if (!purchaseOrderId) return { error: "Purchase order was not found." };
+  if (!supplierId) return { error: "Choose a supplier." };
+  if (!Array.isArray(items) || !items.length) return { error: "Add at least one product." };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("update_purchase_order", { p_purchase_order_id: purchaseOrderId, p_supplier_id: supplierId, p_supplier_reference: String(formData.get("supplierReference") ?? ""), p_notes: String(formData.get("notes") ?? ""), p_items: items });
+  if (error) return { error: error.code === "PGRST202" ? "The purchase order edit update has not been installed yet." : error.message };
+  revalidatePath("/dashboard/purchases");
+  revalidatePath("/dashboard/activity");
+  redirect("/dashboard/purchases");
+}
+
+export async function deletePurchaseOrder(_: PurchaseState, formData: FormData): Promise<PurchaseState> {
+  await requireSuperAdmin();
+  const purchaseOrderId = String(formData.get("purchaseOrderId") ?? "");
+  const reason = String(formData.get("reason") ?? "").trim();
+  if (!purchaseOrderId) return { error: "Purchase order was not found." };
+  if (reason.length < 3) return { error: "Enter a reason for deleting this purchase order." };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("delete_purchase_order", { p_purchase_order_id: purchaseOrderId, p_reason: reason });
+  if (error) return { error: error.code === "PGRST202" ? "The purchase order delete update has not been installed yet." : error.message };
+  revalidatePath("/dashboard/purchases");
+  revalidatePath("/dashboard/purchases/archived");
+  revalidatePath("/dashboard/activity");
+  return { success: "Purchase order deleted." };
+}
+
 export async function receivePurchase(_: PurchaseState, formData: FormData): Promise<PurchaseState> {
   await requireUser();
   const purchaseOrderId = String(formData.get("purchaseOrderId") ?? "");

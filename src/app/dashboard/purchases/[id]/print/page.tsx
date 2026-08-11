@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, PackagePlus } from "lucide-react";
+import { ArrowLeft, PackagePlus, TriangleAlert } from "lucide-react";
 import { PrintReceiptButton } from "@/components/print-receipt-button";
 import { requireUser } from "@/lib/auth";
 import { fetchStoreSettings } from "@/lib/store-settings";
@@ -17,7 +17,7 @@ export default async function PurchaseOrderPrintPage({ params }: { params: Promi
   const [{ data }, storeSettings] = await Promise.all([
     supabase
       .from("purchase_orders")
-      .select("id, po_number, ordered_at, supplier_reference, notes, suppliers(name, phone, address), purchase_order_items(id, product_name, variant_label, quantity_pieces)")
+      .select("id, po_number, ordered_at, supplier_reference, notes, deleted_at, deleted_by, deletion_reason, suppliers(name, phone, address), purchase_order_items(id, product_name, variant_label, quantity_pieces)")
       .eq("id", id)
       .single(),
     fetchStoreSettings(supabase),
@@ -28,12 +28,28 @@ export default async function PurchaseOrderPrintPage({ params }: { params: Promi
   const supplier = Array.isArray(supplierData) ? supplierData[0] : supplierData;
   const items = data.purchase_order_items as unknown as ItemRow[];
 
+  let deletedByName: string | null = null;
+  if (data.deleted_by) {
+    const { data: deleter } = await supabase.from("profiles").select("full_name").eq("id", data.deleted_by).maybeSingle();
+    deletedByName = deleter?.full_name ?? null;
+  }
+
   return (
     <div className="mx-auto max-w-3xl">
       <div className="mb-5 flex items-center justify-between print:hidden">
         <Link className="btn-secondary" href="/dashboard/purchases"><ArrowLeft size={15} />Purchases</Link>
-        <PrintReceiptButton />
+        {!data.deleted_at && <PrintReceiptButton />}
       </div>
+
+      {data.deleted_at && (
+        <div className="mb-5 flex gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800 print:hidden">
+          <TriangleAlert className="mt-0.5 shrink-0" size={18} />
+          <p>
+            This purchase order was deleted on {new Intl.DateTimeFormat("en-PH", { dateStyle: "long", timeStyle: "short", timeZone: "Asia/Manila" }).format(new Date(data.deleted_at))}
+            {deletedByName ? ` by ${deletedByName}` : ""}. Reason: {data.deletion_reason ?? "Not provided"}. It cannot be printed or sent to a supplier.
+          </p>
+        </div>
+      )}
 
       <article className="receipt-print card overflow-hidden bg-white p-8">
         <div className="border-b border-[#e6ebe8] pb-5 text-center">
