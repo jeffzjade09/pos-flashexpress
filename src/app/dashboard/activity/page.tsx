@@ -36,6 +36,8 @@ const actionLabels: Record<string, string> = {
   "expense.deleted": "Deleted expense",
   "purchase.created": "Created purchase order",
   "purchase.received": "Received purchase inventory",
+  "purchase.updated": "Edited purchase order",
+  "purchase.deleted": "Deleted purchase order",
   "closing.created": "Closed cashier day",
   "sale.fulfillment_updated": "Updated fulfillment",
 };
@@ -85,6 +87,12 @@ function detailText(log: AuditLog) {
   }
   if (log.action === "purchase.created") return `Order total ${new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(Number(details.total_cost ?? 0))}`;
   if (log.action === "purchase.received") return `${Number(details.pieces_received ?? 0).toLocaleString()} pieces received${details.completed ? " · Order complete" : " · Partially received"}`;
+  if (log.action === "purchase.updated") {
+    const before = typeof details.before === "object" && details.before ? details.before as Record<string, unknown> : {};
+    const after = typeof details.after === "object" && details.after ? details.after as Record<string, unknown> : {};
+    return `Total ${new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(Number(before.total_cost ?? 0))} → ${new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(Number(after.total_cost ?? 0))}`;
+  }
+  if (log.action === "purchase.deleted") return `Reason: ${String(details.reason ?? "Not provided")}`;
   if (log.action === "closing.created") return `Cash variance ${new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(Number(details.cash_variance ?? 0))} · GCash variance ${new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(Number(details.gcash_variance ?? 0))}`;
   if (log.action === "sale.fulfillment_updated") return `${String(details.from ?? "unknown")} → ${String(details.to ?? "unknown")}`;
   if (typeof details.email === "string") return details.email;
