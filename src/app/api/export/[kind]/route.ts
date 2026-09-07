@@ -1,3 +1,4 @@
+import { resolveReportRange } from "@/features/reports/report-range";
 import { requireSuperAdmin, requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
@@ -11,7 +12,7 @@ function csvResponse(filename: string, headers: string[], rows: unknown[][]) {
   return new Response(`\uFEFF${body}`, { headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="${filename}"`, "Cache-Control": "no-store" } });
 }
 
-export async function GET(_: Request, { params }: { params: Promise<{ kind: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ kind: string }> }) {
   const { kind } = await params;
   const adminExports = new Set(["expenses", "purchases", "closings", "activity"]);
   const user = adminExports.has(kind) ? await requireSuperAdmin() : await requireUser();
@@ -19,8 +20,32 @@ export async function GET(_: Request, { params }: { params: Promise<{ kind: stri
   const date = new Date().toISOString().slice(0, 10);
 
   if (kind === "sales") {
-    const { data } = await supabase.from("sales").select("receipt_number, status, fulfillment_status, sales_channel, payment_method, external_order_id, payment_reference, subtotal, discount_type, discount_value, discount_amount, tax_rate, tax_amount, total_amount, refunded_amount, completed_at").order("completed_at", { ascending: false }).limit(10000);
-    return csvResponse(`flashpos-sales-${date}.csv`, ["Receipt", "Sale status", "Fulfillment", "Channel", "Payment", "Order reference", "Payment reference", "Subtotal", "Discount type", "Discount value", "Discount amount", "Tax rate", "Tax collected", "Gross", "Refunded", "Net", "Completed at"], (data ?? []).map((sale) => [sale.receipt_number, sale.status, sale.fulfillment_status, sale.sales_channel, sale.payment_method, sale.external_order_id, sale.payment_reference, sale.subtotal, sale.discount_type, sale.discount_value, sale.discount_amount, sale.tax_rate, sale.tax_amount, sale.total_amount, sale.refunded_amount, Number(sale.total_amount) - Number(sale.refunded_amount), sale.completed_at]));
+    const url = new URL(request.url);
+    const requestedRange = url.searchParams.get("range");
+    let query = supabase
+      .from("sales")
+      .select("receipt_number, status, fulfillment_status, sales_channel, payment_method, external_order_id, payment_reference, subtotal, discount_type, discount_value, discount_amount, tax_rate, tax_amount, total_amount, refunded_amount, completed_at");
+    let filename = `flashpos-sales-${date}.csv`;
+
+    if (requestedRange === "custom") {
+      const reportRange = resolveReportRange({
+        range: requestedRange,
+        start: url.searchParams.get("start") ?? undefined,
+        end: url.searchParams.get("end") ?? undefined,
+      });
+      if (reportRange.validationError) {
+        return new Response(reportRange.validationError, { status: 400 });
+      }
+      query = query
+        .in("status", ["completed", "partially_refunded", "refunded"])
+        .gte("completed_at", reportRange.startAt)
+        .lt("completed_at", reportRange.endAt);
+      filename = `flashpos-sales-${reportRange.customStart}-to-${reportRange.customEnd}.csv`;
+    }
+
+    const { data, error } = await query.order("completed_at", { ascending: false }).limit(10000);
+    if (error) return new Response("Could not export the sales report.", { status: 500 });
+    return csvResponse(filename, ["Receipt", "Sale status", "Fulfillment", "Channel", "Payment", "Order reference", "Payment reference", "Subtotal", "Discount type", "Discount value", "Discount amount", "Tax rate", "Tax collected", "Gross", "Refunded", "Net", "Completed at"], (data ?? []).map((sale) => [sale.receipt_number, sale.status, sale.fulfillment_status, sale.sales_channel, sale.payment_method, sale.external_order_id, sale.payment_reference, sale.subtotal, sale.discount_type, sale.discount_value, sale.discount_amount, sale.tax_rate, sale.tax_amount, sale.total_amount, sale.refunded_amount, Number(sale.total_amount) - Number(sale.refunded_amount), sale.completed_at]));
   }
   if (kind === "inventory") {
     const { data } = await supabase.from("product_stock").select("sku, barcode, name, variant_label, category_name, cost_per_piece, stock_on_hand, low_stock_threshold, is_active").order("name");
